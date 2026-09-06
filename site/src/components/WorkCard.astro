@@ -1,0 +1,68 @@
+---
+import type {SelectedWork} from '../lib/queries'
+import {urlFor} from '../lib/sanityClient'
+
+interface Props {
+  work: SelectedWork
+}
+
+const {work} = Astro.props
+
+// The published site used the title image as the card's background wash and
+// the project thumbnail as the inset mockup.
+const backgroundUrl = work.heroImage ? urlFor(work.heroImage).width(1440).url() : null
+
+const thumbSrc = work.thumbnail ? urlFor(work.thumbnail).width(644).url() : null
+const thumbSrcset = work.thumbnail
+  ? [500, 644].map((w) => `${urlFor(work.thumbnail!).width(w).url()} ${w}w`).join(', ')
+  : undefined
+---
+
+<div role="listitem" class="collection-item-2 w-dyn-item">
+  <a aria-label="Selected Work Card" href={`/selected-works/${work.slug}`} class="link-block w-inline-block">
+    <div class="work-card">
+      <div
+        class="background_image"
+        style={backgroundUrl ? `background-image:url("${backgroundUrl}")` : undefined}
+      >
+      </div>
+      <div class="work_header">
+        <div class="heading-7">{work.name}</div>
+        <div class="text-block-7">{work.summary}</div>
+      </div>
+      <div class="div-block-8">
+        <div class="work_img">
+          {
+            thumbSrc && (
+              <img
+                src={thumbSrc}
+                srcset={thumbSrcset}
+                sizes="(max-width: 767px) 100vw, 644px"
+                loading="lazy"
+                alt=""
+                class="image"
+              />
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </a>
+  <div class="work_categories">
+    <div class="w-dyn-list">
+      <div role="list" class="collection-list-2 w-dyn-items">
+        {
+          work.categories?.map((category) => (
+            <div role="listitem" class="w-dyn-item">
+              <div class="div-block-6">
+                <div class="div-block-7">
+                  <div class="text-block-8">{category.name}</div>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</div>

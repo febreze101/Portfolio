@@ -1,0 +1,103 @@
+---
+import {toHTML} from '@portabletext/to-html'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import Footer from '../../components/Footer.astro'
+import Nav from '../../components/Nav.astro'
+import {getSelectedWorks, type SelectedWork} from '../../lib/queries'
+import {urlFor} from '../../lib/sanityClient'
+
+export async function getStaticPaths() {
+  const works = await getSelectedWorks()
+  return works.map((work) => ({
+    params: {slug: work.slug},
+    props: {work},
+  }))
+}
+
+interface Props {
+  work: SelectedWork
+}
+
+const {work} = Astro.props
+
+const description = work.fullDescription ? toHTML(work.fullDescription) : null
+
+const images = (work.images ?? []).map((image) => ({
+  full: urlFor(image).width(1440).url(),
+  srcset: [500, 800, 1080, 1440].map((w) => `${urlFor(image).width(w).url()} ${w}w`).join(', '),
+}))
+---
+
+<BaseLayout title={work.name} description={work.summary ?? undefined} bodyClass="selected_work_body">
+  <Nav />
+
+  <div class="header_parent">
+    <div class="header-container container">
+      <div class="header-content">
+        <h1 class="selected_work-heading">{work.name}</h1>
+        <div class="text-block-6">{work.summary}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="portfolio-parent">
+    <div class="portfolio-container container">
+      <div class="portfolio_images-wrapper">
+        <div class="masonry-layout w-dyn-list">
+          {
+            images.length > 0 ? (
+              <div role="list" class="w-dyn-items">
+                {images.map((image) => (
+                  <div
+                    role="listitem"
+                    class="collection-item w-dyn-item w-dyn-repeater-item"
+                    style={`background-image:url("${image.full}")`}
+                  >
+                    <a
+                      href={image.full}
+                      target="_blank"
+                      rel="noopener"
+                      class="lightbox-link w-inline-block"
+                    >
+                      <img
+                        src={image.full}
+                        srcset={image.srcset}
+                        sizes="(max-width: 1919px) 100vw, 1918.9375px"
+                        loading="lazy"
+                        alt=""
+                        class="image"
+                      />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div class="w-dyn-empty">
+                <div>No items found.</div>
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="portfolio-info">
+        <div class="div-block-4">
+          <h4 class="heading-6">Description</h4>
+          <div class="text-block-5" set:html={description} />
+        </div>
+        {
+          work.link && (
+            <div class="div-block-3">
+              <h4 class="heading-6">Check It Out!</h4>
+              <a href={work.link} target="_blank" rel="noopener" class="link">
+                {work.link}
+              </a>
+            </div>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  <Footer sectionLinksTo="none" />
+</BaseLayout>

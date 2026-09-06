@@ -1,17 +1,333 @@
 ---
+import BaseLayout from '../layouts/BaseLayout.astro'
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Choose Your Starting Point',
+  description:
+    'Welcome to my corner of the internet. Explore curated design, development work, and photography collections.',
+  url: '/',
+  inLanguage: 'en',
+  mainEntity: {
+    '@type': 'Person',
+    name: 'Donald A. Norman',
+    description:
+      'Designer, developer, and photographer showcasing digital work and visual storytelling',
+  },
+}
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout
+  title="Choose Your Starting Point"
+  description="Explore curated design, development work, and photography. Choose your path to discover digital projects and visual storytelling."
+  bodyClass="body-2"
+  jsonLd={jsonLd}
+>
+  <!-- Keep the intro elements hidden until the timeline takes over, mirroring
+       what Webflow's IX2 runtime did with `.w-mod-ix3`. -->
+  <style slot="head" is:inline>
+    html.intro-pending
+      :is(
+        .loader-parent,
+        .loader-quote > *,
+        .loading-animation-container,
+        .landing_parent,
+        .choose-text
+      ) {
+      visibility: hidden !important;
+    }
+  </style>
+  <script slot="head" is:inline>
+    document.documentElement.classList.add('intro-pending')
+  </script>
+
+  <div class="loader-parent">
+    <div class="w-layout-vflex loader-content">
+      <div class="loader-quote">
+        <div class="text-block-11">
+          “We must design for the way people behave, not for how we would wish them to behave.”<br
+          /><span class="text-span-3">― Donald A. Norman, The Design of Everyday Things</span>
+        </div>
+      </div>
+      <div class="loading-animation-wrapper">
+        <div class="loading-animation-container">
+          <div class="w-embed"><div class="loader"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="landing_parent">
+    <div class="split-col-left">
+      <div id="img_wrapper-dev" class="photo-bg-image-left">
+        <div class="w-layout-vflex photo-details-wrapper-left">
+          <div class="landing-choice-desc-copy">
+            View a curated selection of my design/Development work over time.
+          </div>
+          <a href="/old-home" class="landing-btn w-inline-block">
+            <div class="landing-btn-text">View Digital Work</div>
+          </a>
+        </div>
+      </div>
+      <h1 class="photo-heading-left">Design/Development</h1>
+    </div>
+
+    <div class="divider">
+      <div class="code-embed w-embed">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+          <line x1="50" y1="40" x2="50" y2="60" stroke="black" stroke-width="1"></line>
+        </svg>
+      </div>
+    </div>
+
+    <div class="split-col-right">
+      <h1 class="photo-heading">Photography</h1>
+      <div class="photo-bg-image">
+        <div class="w-layout-vflex photo-details-wrapper">
+          <div class="landing-choice-desc">
+            Browse through a collection of my photography over the years
+          </div>
+          <a
+            href="https://www.instagram.com/flicks_by_fabrice/"
+            target="_blank"
+            rel="noopener"
+            class="landing-btn w-inline-block"
+          >
+            <div class="landing-btn-text">View Visual Work</div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="choose-text">Welcome to my Corner of the Internet.</div>
+    <div class="choose-text bottom">Where would you like to Start?</div>
+  </div>
+
+  <script>
+    import {gsap} from 'gsap'
+    import {SplitText} from 'gsap/SplitText'
+
+    gsap.registerPlugin(SplitText)
+
+    /* ------------------------------------------------------------------ *
+     * Intro timeline
+     *
+     * Rebuilt from the published site's Webflow IX3 timeline "t-760b4be5",
+     * preserving its positions, durations, easings and staggers. Webflow's
+     * easing indices map to: 7 -> power3.in, 27 -> expo.inOut.
+     * ------------------------------------------------------------------ */
+    function playIntro() {
+      const quoteTargets = document.querySelectorAll<HTMLElement>('.loader-quote > *')
+      const chooseText = document.querySelectorAll<HTMLElement>('.choose-text')
+      const loaderParent = document.querySelector<HTMLElement>('.loader-parent')
+      const spinner = document.querySelector<HTMLElement>('.loading-animation-container')
+      const landing = document.querySelector<HTMLElement>('.landing_parent')
+
+      const quoteSplit = new SplitText(quoteTargets, {type: 'chars', mask: 'chars'})
+      const chooseSplit = new SplitText(chooseText, {type: 'words', mask: 'words'})
+
+      // Everything is measured and split, so it is safe to reveal.
+      document.documentElement.classList.remove('intro-pending')
+
+      const tl = gsap.timeline()
+
+      // Quote characters rise into view.
+      tl.fromTo(
+        quoteSplit.chars,
+        {yPercent: 100},
+        {
+          yPercent: 0,
+          duration: 1,
+          ease: 'expo.inOut',
+          stagger: {each: 0.01, ease: 'expo.inOut', from: 'start'},
+        },
+        0,
+      )
+
+      // Spinner fades in.
+      tl.fromTo(spinner, {opacity: 0}, {opacity: 1, duration: 1.09}, 0.5)
+
+      // Quote characters drop back out.
+      tl.to(
+        quoteSplit.chars,
+        {
+          yPercent: 100,
+          duration: 0.91,
+          stagger: {each: 0.01, ease: 'expo.inOut', from: 'start'},
+        },
+        3,
+      )
+
+      // Spinner fades out and leaves the layout.
+      tl.to(spinner, {opacity: 0, duration: 1.99, onComplete: () => gsap.set(spinner, {display: 'none'})}, 3)
+
+      // Loader curtain lifts.
+      tl.to(
+        loaderParent,
+        {
+          opacity: 0,
+          duration: 1,
+          ease: 'expo.inOut',
+          onComplete: () => gsap.set(loaderParent, {display: 'none'}),
+        },
+        4,
+      )
+
+      // Landing scales up into place.
+      tl.fromTo(
+        landing,
+        {opacity: 0, scale: 0.5},
+        {opacity: 1, scale: 1, duration: 1, ease: 'expo.inOut'},
+        4,
+      )
+
+      // Prompt copy fades in word by word.
+      tl.fromTo(
+        chooseSplit.words,
+        {opacity: 0},
+        {opacity: 1, duration: 0.25, ease: 'power3.in', stagger: 0.1},
+        5,
+      )
+    }
+
+    /* ------------------------------------------------------------------ *
+     * Split-column hover behaviour (ported from the site's custom embed)
+     * ------------------------------------------------------------------ */
+    function initSplitHover() {
+      const mm = gsap.matchMedia()
+      const originalTextColor = '#A0320B'
+      const buttonHoverBgColor = '#FEF7E5'
+
+      const left = {
+        target: document.querySelector<HTMLElement>('.split-col-left'),
+        bg: document.querySelector<HTMLElement>('.photo-bg-image-left'),
+        heading: document.querySelector<HTMLElement>('.photo-heading-left'),
+        details: document.querySelector<HTMLElement>('.photo-details-wrapper-left'),
+      }
+
+      const right = {
+        target: document.querySelector<HTMLElement>('.split-col-right'),
+        bg: document.querySelector<HTMLElement>('.photo-bg-image'),
+        heading: document.querySelector<HTMLElement>('.photo-heading'),
+        details: document.querySelector<HTMLElement>('.photo-details-wrapper'),
+      }
+
+      const chooseText = document.querySelectorAll<HTMLElement>('.choose-text')
+      const landingButtons = document.querySelectorAll<HTMLElement>('.landing-btn')
+
+      mm.add('(min-width: 991px)', () => {
+        gsap.set([left.bg, right.bg, left.details, right.details], {opacity: 0})
+        gsap.set([left.details, right.details], {display: 'none', y: 10})
+        gsap.set([left.heading, right.heading], {opacity: 1, color: originalTextColor})
+
+        landingButtons.forEach((btn) => {
+          const txt = btn.querySelector('.landing-btn-text')
+          gsap.set(btn, {backgroundColor: 'transparent'})
+          gsap.set(txt, {color: 'white'})
+        })
+
+        const hoverIn = (bg: Element | null, heading: Element | null, details: Element | null) => {
+          gsap.killTweensOf([bg, heading, details, chooseText])
+          gsap.set(details, {display: 'flex'})
+          gsap
+            .timeline({defaults: {duration: 0.5, ease: 'power2.out'}})
+            .to(bg, {opacity: 1}, 0)
+            .to(heading, {opacity: 0}, 0)
+            .to(details, {opacity: 1, y: 0}, 0.1)
+            .to(chooseText, {opacity: 0}, 0)
+        }
+
+        const hoverOut = (bg: Element | null, heading: Element | null, details: Element | null) => {
+          gsap.killTweensOf([bg, heading, details, chooseText])
+          gsap
+            .timeline({defaults: {duration: 0.4, ease: 'power2.inOut'}})
+            .to(details, {opacity: 0, y: 10}, 0)
+            .to(heading, {opacity: 1}, 0.1)
+            .to(bg, {opacity: 0}, 0.1)
+            .to(chooseText, {opacity: 1}, 0.1)
+            .set(details, {display: 'none'})
+        }
+
+        const btnIn = (e: Event) => {
+          const target = e.currentTarget as HTMLElement
+          const txt = target.querySelector('.landing-btn-text')
+          gsap.to(target, {duration: 0.3, backgroundColor: buttonHoverBgColor})
+          gsap.to(txt, {duration: 0.3, color: 'black'})
+        }
+
+        const btnOut = (e: Event) => {
+          const target = e.currentTarget as HTMLElement
+          const txt = target.querySelector('.landing-btn-text')
+          gsap.to(target, {duration: 0.3, backgroundColor: 'transparent'})
+          gsap.to(txt, {duration: 0.3, color: 'white'})
+        }
+
+        const onLeftEnter = () => hoverIn(left.bg, left.heading, left.details)
+        const onLeftLeave = () => hoverOut(left.bg, left.heading, left.details)
+        const onRightEnter = () => hoverIn(right.bg, right.heading, right.details)
+        const onRightLeave = () => hoverOut(right.bg, right.heading, right.details)
+
+        left.target?.addEventListener('mouseenter', onLeftEnter)
+        left.target?.addEventListener('mouseleave', onLeftLeave)
+        right.target?.addEventListener('mouseenter', onRightEnter)
+        right.target?.addEventListener('mouseleave', onRightLeave)
+
+        landingButtons.forEach((btn) => {
+          btn.addEventListener('mouseenter', btnIn)
+          btn.addEventListener('mouseleave', btnOut)
+        })
+
+        return () => {
+          left.target?.removeEventListener('mouseenter', onLeftEnter)
+          left.target?.removeEventListener('mouseleave', onLeftLeave)
+          right.target?.removeEventListener('mouseenter', onRightEnter)
+          right.target?.removeEventListener('mouseleave', onRightLeave)
+
+          landingButtons.forEach((btn) => {
+            btn.removeEventListener('mouseenter', btnIn)
+            btn.removeEventListener('mouseleave', btnOut)
+          })
+
+          gsap.set(
+            [
+              left.bg,
+              right.bg,
+              left.heading,
+              right.heading,
+              left.details,
+              right.details,
+              chooseText,
+            ],
+            {clearProps: 'all'},
+          )
+        }
+      })
+
+      mm.add('(max-width: 990px)', () => {
+        landingButtons.forEach((button) => {
+          const buttonText = button.querySelector('.landing-btn-text')
+          if (buttonText) {
+            gsap.set(button, {backgroundColor: buttonHoverBgColor})
+            gsap.set(buttonText, {color: 'black'})
+          }
+        })
+
+        return () => {
+          gsap.set(landingButtons, {clearProps: 'backgroundColor'})
+          landingButtons.forEach((btn) => {
+            const txt = btn.querySelector('.landing-btn-text')
+            gsap.set(txt, {clearProps: 'color'})
+          })
+        }
+      })
+    }
+
+    // Fonts must be ready before SplitText measures glyphs, otherwise the
+    // masked characters land at the wrong offsets.
+    document.fonts.ready.then(() => {
+      playIntro()
+      initSplitHover()
+    })
+  </script>
+</BaseLayout>

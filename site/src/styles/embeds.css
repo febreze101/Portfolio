@@ -1,0 +1,172 @@
+/* Custom CSS that lived in Webflow "Embed" blocks, consolidated here.
+   Ported verbatim from the published site. */
+
+/* Hides scrollbar for Firefox, IE, and Edge */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hides scrollbar for Chrome, Safari, and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* 1. Define the track (the bar/background) */
+.minimal-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* Makes the area behind the scrollbar invisible */
+  border-radius: 16px;
+}
+
+/* 2. Define the scrollbar itself (overall size) */
+.minimal-scrollbar::-webkit-scrollbar {
+  width: 12px; /* Sets the vertical scrollbar width */
+  height: 12px; /* Sets the horizontal scrollbar height */
+}
+
+/* 3. Define the thumb (the draggable handle) */
+.minimal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #a0320b; /* A light grey color for the minimal bar */
+  border-radius: 12px; /* Rounded edges for a smooth look */
+}
+
+/* 4. Optional: Style the thumb when hovering for better UX */
+.minimal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #a0320bbf;
+}
+
+/* Fluid type scale ------------------------------------------------------- */
+
+/* Desktop */
+:root {
+  --size-unit: 16; /* screen-size in design = no px */
+  --size-container-ideal: 1920; /* screen-size in design - no px */
+  --size-container-min: 1024px;
+  --size-container-max: 1920px;
+  --size-container: clamp(
+    var(--size-container-min),
+    100vw,
+    var(--size-container-max)
+  );
+  --size-font: calc(
+    var(--size-container) / (var(--size-container-ideal) / var(--size-unit))
+  );
+}
+
+/* Tablet */
+@media screen and (max-width: 991px) {
+  :root {
+    --size-container-ideal: 1024; /* screen-size in design - no px */
+    --size-container-min: 768px;
+    --size-container-max: 1024px;
+  }
+}
+
+/* Mobile Landscape */
+@media screen and (max-width: 767px) {
+  :root {
+    --size-container-ideal: 500; /* screen-size in design - no px */
+    --size-container-min: 480px;
+    --size-container-max: 767px;
+  }
+}
+
+/* Mobile Portrait */
+@media screen and (max-width: 479px) {
+  :root {
+    --size-container-ideal: 390; /* screen-size in design - no px */
+    --size-container-min: 320px;
+    --size-container-max: 479px;
+  }
+}
+
+body {
+  font-size: var(--size-font);
+}
+
+.container {
+  max-width: var(--size-container);
+}
+
+.container.medium {
+  max-width: calc(var(--size-container) * 0.85);
+}
+
+.container.small {
+  max-width: calc(var(--size-container) * 0.7);
+}
+
+.nav-parent {
+  background-color: rgba(30, 30, 30, 0.2);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+
+  /* Fade the nav out toward its bottom edge with a mask gradient */
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 40%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 40%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+/* Loading spinner -------------------------------------------------------- */
+
+.loader {
+  width: 50px;
+  height: 28px;
+  --_g: no-repeat radial-gradient(farthest-side, #a0320b 94%, #0000);
+  background: var(--_g) 50% 0, var(--_g) 100% 0;
+  background-size: 12px 12px;
+  position: relative;
+  animation: l23-0 1.5s linear infinite;
+}
+
+.loader:before {
+  content: "";
+  position: absolute;
+  height: 12px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #000;
+  left: 0;
+  top: 0;
+  animation: l23-1 1.5s linear infinite,
+    l23-2 0.5s cubic-bezier(0, 200, 0.8, 200) infinite;
+}
+
+@keyframes l23-0 {
+  0%, 31% { background-position: 50% 0, 100% 0; }
+  33% { background-position: 50% 100%, 100% 0; }
+  43%, 64% { background-position: 50% 0, 100% 0; }
+  66% { background-position: 50% 0, 100% 100%; }
+  79% { background-position: 50% 0, 100% 0; }
+  100% { transform: translateX(calc(-100% / 3)); }
+}
+
+@keyframes l23-1 {
+  100% { left: calc(100% + 7px); }
+}
+
+@keyframes l23-2 {
+  100% { top: -0.1px; }
+}
+
+/* Accordion -------------------------------------------------------------- */
+/* The published site drove this with a Webflow IX2 interaction; the height
+   animation is now handled in JS, so the collapsed default lives here. */
+
+.accordion-content {
+  overflow: hidden;
+  height: 0;
+}
+
+.accordion-header {
+  cursor: pointer;
+}

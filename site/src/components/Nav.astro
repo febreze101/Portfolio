@@ -1,0 +1,33 @@
+---
+interface Link {
+  href: string
+  label: string
+}
+
+interface Props {
+  links?: Link[]
+}
+
+// The work-detail pages showed a single "Home" link; the main page showed
+// section anchors.
+const {links = [{href: '/old-home', label: 'Home'}]} = Astro.props
+---
+
+<div class="nav-parent">
+  <div class="container">
+    <div class="nav-row">
+      <div class="nav-inner">
+        <div class="nav-menu">
+          <div class="nav-menu_links">
+            {links.map((link) => <a href={link.href} class="nav-link">{link.label}</a>)}
+          </div>
+        </div>
+        <div class="nav-button-row">
+          <a href="mailto:fabrice@fabricebokovi.com?subject=Inquiry!" class="nav-link">
+            Let&#39;s Talk!
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

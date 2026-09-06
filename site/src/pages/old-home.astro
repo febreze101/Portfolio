@@ -1,0 +1,312 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import Footer from '../components/Footer.astro'
+import Nav from '../components/Nav.astro'
+import WorkCard from '../components/WorkCard.astro'
+import {getSelectedWorks} from '../lib/queries'
+import {urlFor} from '../lib/sanityClient'
+
+const works = await getSelectedWorks()
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ProfilePage',
+  name: 'Fabrice Bokovi - Web Designer/Developer',
+  url: '/old-home',
+  inLanguage: 'en',
+  about: {
+    '@type': 'Person',
+    name: 'Fabrice Bokovi',
+    jobTitle: 'Web Designer/Developer',
+    description:
+      'Web Designer/Developer with a keen eye for designing with the user in mind and solving real world problems',
+    email: 'fabrice@fabricebokovi.com',
+    sameAs: ['https://www.linkedin.com/in/fabrice-bokovi/', 'https://github.com/febreze101'],
+    knowsAbout: ['Web Design', 'Web Development', 'User Experience Design', 'Figma', 'Webflow'],
+    hasOccupation: {
+      '@type': 'Occupation',
+      name: 'Web Designer/Developer',
+      skills: [
+        'User-Centered Design',
+        'Web Development',
+        'Problem Solving',
+        'Figma',
+        'Webflow',
+      ],
+    },
+  },
+  mainEntity: {
+    '@type': 'ItemList',
+    name: 'Selected Works',
+    itemListElement: works.map((work, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'CreativeWork',
+        name: work.name,
+        description: work.summary,
+        url: `/selected-works/${work.slug}`,
+        image: work.thumbnail ? urlFor(work.thumbnail).width(644).url() : undefined,
+        keywords: work.categories?.map((category) => category.name).join(', '),
+      },
+    })),
+  },
+}
+
+const processSteps = [
+  {
+    number: '01',
+    title: 'Discovery',
+    items: [
+      {
+        lead: 'Strategic Alignment:',
+        body: ' A consultation to establish compatibility and truly understand your current challenge and ultimate ',
+        emphasis: 'business goals',
+        tail: '.',
+      },
+      {
+        lead: 'Market & Competitor Analysis:',
+        body: ' Researching your industry and market leaders to find the opportunities that will become your ',
+        emphasis: 'unfair advantage',
+        tail: '.',
+      },
+      {
+        lead: 'Project Blueprinting:',
+        body: ' A thorough review of existing assets and systems to define technical needs and map out a clear, ',
+        emphasis: 'actionable path forward',
+        tail: '.',
+      },
+    ],
+  },
+  {
+    number: '02',
+    title: 'Design',
+    items: [
+      {
+        lead: 'Structure & User Flow:',
+        body: " Defining the site's architecture and wireframing the layout to ensure the content and ",
+        emphasis: 'user journey are perfectly logical.',
+        tail: '',
+      },
+      {
+        lead: 'Brand & Interface Exploration:',
+        body: ' Developing a visual identity and design system focused on being ',
+        emphasis: 'intuitive, accessible,',
+        tail: ' and aligned with your brand.',
+      },
+      {
+        lead: 'Design Review & Refinement:',
+        body: ' Presenting the design for feedback and making ',
+        emphasis: 'data-informed adjustments',
+        tail: ' to finalize the visual strategy.',
+      },
+    ],
+  },
+  {
+    number: '03',
+    title: 'Development',
+    items: [
+      {
+        lead: 'Robust Architecture:',
+        body: ' Leveraging deep programming knowledge to build a ',
+        emphasis: 'reliable, high-performance ',
+        tail: 'technical foundation.',
+      },
+      {
+        lead: 'Clean, Scalable Code:',
+        body: ' Writing clean, modern code that is fast, secure,',
+        emphasis: ' and easy to maintain ',
+        tail: 'for future growth.',
+      },
+      {
+        lead: 'Cross-Platform QA:',
+        body: ' Rigorous testing to ensure ',
+        emphasis: 'flawless functionality',
+        tail: ' across all browsers and devices.',
+      },
+    ],
+  },
+  {
+    number: '04',
+    title: 'Offboarding',
+    items: [
+      {
+        lead: 'Meticulous Quality Assurance:',
+        body: ' Final pre-launch checks to ensure all elements are pixel-perfect and',
+        emphasis: ' technically optimized.',
+        tail: '',
+      },
+      {
+        lead: 'Documentation & Handoff:',
+        body: ' Providing comprehensive documentation and executing a',
+        emphasis: ' seamless system handoff ',
+        tail: 'to your team.',
+      },
+      {
+        lead: 'Growth Support:',
+        body: ' Guidance and resources needed to measure and ',
+        emphasis: 'continuously optimize',
+        tail: ' your new digital asset.',
+      },
+    ],
+  },
+]
+---
+
+<BaseLayout
+  title="Design/Development"
+  description="Web designer and developer specializing in user-centered design and solving real-world problems. View selected works and process for high-end digital projects."
+  bodyClass="body"
+  jsonLd={jsonLd}
+>
+  <Nav
+    links={[
+      {href: '#selected_works', label: 'Works'},
+      {href: '#about', label: 'About'},
+      {href: '#process', label: 'Process'},
+    ]}
+  />
+
+  <div id="home" class="header_parent">
+    <div class="header-container container">
+      <div class="header-content container">
+        <h1 class="selected_work-heading">Fabrice</h1>
+        <h2 class="heading-2">
+          Web <span class="text-span">Designer</span>/<span class="text-span-2"
+            ><strong>Developer</strong></span
+          > with a Keen eye for designing with the user in mind and <strong class="bold-text-5"
+            >solving real world problems</strong
+          >.
+        </h2>
+      </div>
+      <div class="w-layout-hflex header-cta-wrapper">
+        <a href="mailto:fabrice@fabricebokovi.com?subject=Inquiry" class="header-cta w-inline-block">
+          <div class="div-block-11">
+            <div class="text-block-10">Get In Touch</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="selected_works" class="selected_works-parent">
+    <div class="selected_works-container container">
+      <div id="selected-works" class="selected_works-content">
+        <h2 class="heading-3">Selected Works</h2>
+        <div class="selected_work_cards-container minimal-scrollbar">
+          <div class="w-dyn-list">
+            {
+              works.length > 0 ? (
+                <div role="list" class="collection-list w-dyn-items">
+                  {works.map((work) => (
+                    <WorkCard work={work} />
+                  ))}
+                </div>
+              ) : (
+                <div class="w-dyn-empty">
+                  <div>No items found.</div>
+                </div>
+              )
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="about" class="about-parent">
+    <div class="about-container container">
+      <div class="w-layout-grid about_text-container">
+        <div class="div-block">
+          <h3 class="heading-4">A thing or two about myself</h3>
+        </div>
+        <div class="w-layout-hflex flex-block-5">
+          <div class="body-text">
+            <strong class="bold-text-2">My curiosity started early.</strong> A simple game of Zuma at
+            9 led to an obsession with Game Dev at 13. As my studies deepened, I found myself programming
+            hardware and architecting complex databases for clinical uses under mentorship at Virtual
+            Incision. It was there that I was given the opportunity to dive deep into intuitive interface
+            design for their surgeon console.
+          </div>
+          <div class="body-text">
+            <strong class="bold-text-3">My path is defined by a blend of deep</strong> technical skill
+            and a passion for creating designs that are easy to use. Every step has been about getting
+            to the root of a problem. Now, I apply that persistent curiosity to your project and deliver
+            user-focused solutions.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="process" class="process_section-parent">
+    <div class="process_section-container container">
+      <div class="w-layout-vflex process_section-content">
+        <div class="process_section-header">
+          <h2 class="heading-3">My process</h2>
+        </div>
+        <div class="accordion-wrapper">
+          {
+            processSteps.map((step) => (
+              <div class="accordion-item">
+                <div class="accordion-header" role="button" tabindex="0" aria-expanded="false">
+                  <div class="accordion-title">{step.number}</div>
+                  <div class="accordion-title">|</div>
+                  <div class="accordion-title">{step.title}</div>
+                </div>
+                <div class="accordion-content">
+                  <ul role="list" class="process-list w-list-unstyled">
+                    {step.items.map((item) => (
+                      <li class="accordion-content-text">
+                        <strong class="bold_text">{item.lead}</strong>
+                        {item.body}
+                        <strong class="bold_text">{item.emphasis}</strong>
+                        {item.tail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <Footer />
+
+  <script>
+    import {gsap} from 'gsap'
+
+    /* The published site drove this accordion with a Webflow IX2 interaction
+       (height 0 <-> auto on `.accordion-content`). Rebuilt here in GSAP. */
+    const headers = document.querySelectorAll<HTMLElement>('.accordion-header')
+
+    headers.forEach((header) => {
+      const content = header.nextElementSibling as HTMLElement | null
+      if (!content) return
+
+      let open = false
+
+      const toggle = () => {
+        open = !open
+        header.setAttribute('aria-expanded', String(open))
+
+        gsap.to(content, {
+          height: open ? 'auto' : 0,
+          duration: 0.4,
+          ease: 'power2.inOut',
+        })
+      }
+
+      header.addEventListener('click', toggle)
+      header.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          toggle()
+        }
+      })
+    })
+  </script>
+</BaseLayout>

@@ -1,0 +1,59 @@
+---
+interface Props {
+  /** Work-detail pages rendered the section links as inert "#" hrefs. */
+  sectionLinksTo?: 'old-home' | 'none'
+}
+
+const {sectionLinksTo = 'old-home'} = Astro.props
+
+const sectionLinks =
+  sectionLinksTo === 'old-home'
+    ? [
+        {href: '/old-home#home', label: 'Home'},
+        {href: '/old-home#selected_works', label: 'Work'},
+        {href: '/old-home#about', label: 'About'},
+      ]
+    : [
+        {href: '#', label: 'Home'},
+        {href: '#', label: 'Work'},
+        {href: '#', label: 'About'},
+      ]
+---
+
+<div class="footer_parent container">
+  <div class="footer-container">
+    <div class="footer-content">
+      <div class="footer-header">
+        <h2 class="heading-5">Your next project’s unfair advantage is here.</h2>
+      </div>
+      <div class="footer-body">
+        <div class="text-block-4">"</div>
+        <div class="text-block-3">
+          <strong class="bold-text-4">Fabrice&#39;s website design has single-handedly</strong> helped
+          us turn our small hobby into something self sustaining! His around the clock
+          communication, resiliency, and tact is a valuable asset to any team. Our final product is
+          everything we could have asked for and more. - <strong class="bold-text"
+            >Rodney Conyers, Jr. Founder Conyers Studios</strong
+          >
+        </div>
+      </div>
+      <div class="w-layout-grid footer-footer">
+        <div class="w-layout-hflex flex-block-2">
+          {sectionLinks.map((link) => <a href={link.href} class="footer-link">{link.label}</a>)}
+        </div>
+        <div class="w-layout-hflex flex-block-3">
+          <a
+            href="https://www.linkedin.com/in/fabrice-bokovi/"
+            target="_blank"
+            rel="noopener"
+            class="footer-link">LinkedIn</a
+          >
+          <a href="https://github.com/febreze101" target="_blank" rel="noopener" class="footer-link"
+            >GitHub</a
+          >
+          <a href="#" class="footer-link">Resume</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

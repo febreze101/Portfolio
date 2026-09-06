@@ -1,0 +1,79 @@
+---
+import '../styles/webflow.css'
+import '../styles/embeds.css'
+
+interface Props {
+  title: string
+  description?: string
+  /** Class applied to <body>. Webflow used a different one per page. */
+  bodyClass?: string
+  /** Raw JSON-LD object, serialised into a ld+json script tag. */
+  jsonLd?: Record<string, unknown>
+}
+
+const {title, description, bodyClass, jsonLd} = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+
+    <meta property="og:title" content={title} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    {
+      description && (
+        <>
+          <meta property="og:description" content={description} />
+          <meta name="twitter:description" content={description} />
+        </>
+      )
+    }
+
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Pacifico&family=Anonymous+Pro:wght@400;700&display=swap"
+    />
+    <!-- aktiv-grotesk, served by Adobe Fonts -->
+    <link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css" />
+
+    {
+      jsonLd && (
+        <script
+          type="application/ld+json"
+          set:html={JSON.stringify(jsonLd, null, 2)}
+        />
+      )
+    }
+
+    <slot name="head" />
+  </head>
+
+  <body class={bodyClass}>
+    <slot />
+
+    <script>
+      import Lenis from 'lenis'
+      import 'lenis/dist/lenis.css'
+
+      const lenis = new Lenis({lerp: 0.1})
+
+      function raf(time: number) {
+        lenis.raf(time)
+        requestAnimationFrame(raf)
+      }
+
+      requestAnimationFrame(raf)
+    </script>
+  </body>
+</html>

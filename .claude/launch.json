@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "prototype",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5178", "--bind", "127.0.0.1"],
+      "port": 5178
+    },
+    {
+      "name": "crea8tive-club",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5180", "--bind", "127.0.0.1", "--directory", "C:/Users/xfabr/projects/Crea8tive Club"],
+      "port": 5180
+    }
+  ]
+}

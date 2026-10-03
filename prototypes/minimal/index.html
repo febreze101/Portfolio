@@ -241,6 +241,11 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 #fps{position:fixed;right:14px;bottom:14px;z-index:100;font-family:var(--mono);font-size:10px;line-height:1.35;letter-spacing:.04em;
   padding:6px 9px;border-radius:6px;background:rgba(0,0,0,.72);color:#e8e8e3;pointer-events:none;font-variant-numeric:tabular-nums;white-space:pre}
 #fps.hide{display:none}
+#dayStrip{display:block;width:100%;height:46px;border-radius:5px;cursor:ew-resize;touch-action:none;background:#e7e7e3}
+#proto .todrow{display:flex;justify-content:space-between;align-items:center;gap:6px}
+#proto .todrow span{font-size:9.5px;color:#444}
+#proto .todrow button{padding:4px 7px;border-radius:5px;background:#e7e7e3;font-size:9.5px;white-space:nowrap}
+#proto .todrow button.on{background:#111;color:#fff}
 #proto .probe{padding:6px 7px;border-radius:5px;background:#111;color:#fff;text-align:left;font-size:10px;margin:2px 0 4px}
 #proto .probe:disabled{opacity:.5}
 #fps .bad{color:#ff8a6a}#fps .ok{color:#f2d36b}#fps .good{color:#8be09a}
@@ -320,6 +325,9 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
     </div>
     <span class="pl">Look</span>
     <div class="jumps" id="lookList"></div>
+    <span class="pl">Time of day · Pacific</span>
+    <canvas id="dayStrip" title="Click or drag to preview an hour"></canvas>
+    <div class="todrow"><span id="todLabel">—</span><button id="todPlay">▶ Play a day</button></div>
     <span class="pl">Jump to screen</span>
     <div class="jumps">
       <button data-j="home">A · Home / carousel</button>
@@ -942,6 +950,7 @@ const LOOKS = [
   ['Mono dark · ember glow',   {look: 'mono-dark',  palette: 'custom',   enabled: true,  opacity: 1,   pattern: 'none'}],
   ['Mono dark · white glow',   {look: 'mono-dark',  palette: 'white',    enabled: true,  opacity: 0.85, pattern: 'none'}],
   ['Paper · ash spill',        {look: 'mono-light', palette: 'ash',      enabled: true,  opacity: 0.9, pattern: 'none'}],
+  ['Mono dark · time of day',  {look: 'mono-dark',  palette: 'time',     enabled: true,  opacity: 1,   pattern: 'none'}],
 ];
 
 const DEFAULTS = {
@@ -961,14 +970,65 @@ const DEFAULTS = {
   scale: 1, rotation: 0, offsetX: 0, offsetY: -0.15,
   // performance: render scale of the glow shader (it's a soft blur — 0.5 is visually identical at a quarter of the pixels)
   res: 0.5,
+  // time of day (palette 'time'): glow colours follow the clock in Pacific time
+  todLive: true, todHour: 16, todBlend: 1.5, daySecs: 30,
+  tod: [   // h = hour the phase is fully in; colours: 4 glow tones + the dark base the mesh flows into
+    {name: 'Night',     h: 0,    c: ['#2b3f9e', '#16246b', '#4a66c9', '#0b1238', '#04060f']},
+    {name: 'Dawn',      h: 5.5,  c: ['#8a5aa8', '#d9809a', '#f4b8a6', '#3a2560', '#0b0814']},
+    {name: 'Morning',   h: 8,    c: ['#ffc27a', '#ff9e5e', '#ffe1ae', '#d9774f', '#160c06']},
+    {name: 'Midday',    h: 12,   c: ['#6fbcff', '#ffd84a', '#c4e8ff', '#2f86d6', '#081320']},
+    {name: 'Afternoon', h: 15.5, c: ['#ff7a1a', '#f2541b', '#ff9d5c', '#a3240e', '#140604']},
+    {name: 'Dusk',      h: 19,   c: ['#ff5a3c', '#b8235e', '#ff9b7a', '#4e1a5c', '#0c0510']},
+  ],
 };
 const KEY = 'proto-glow-v1';
 let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
-const P = {...DEFAULTS, ...saved};
+const P = {...structuredClone(DEFAULTS), ...saved};
+
+/* ── time of day ─────────────────────────────────────────────────────────────
+   Each phase holds its palette, then blends into the next over the last `todBlend` hours before it. Blending is
+   done in OKLab so e.g. sky blue → orange passes through warm neutrals instead of a muddy grey. Wraps at midnight. */
+const PT = new Intl.DateTimeFormat('en-US', {timeZone: 'America/Los_Angeles', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'});
+const ptHour = () => { const p = Object.fromEntries(PT.formatToParts(new Date()).map(x => [x.type, x.value])); return +p.hour + p.minute / 60; };
+const lin = c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+const gam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+function hexToOklab(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+function oklabToRgb([L, A, B]) {
+  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3, m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3, s = (L - 0.0894841775 * A - 1.2914855480 * B) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s]
+    .map(c => Math.min(1, Math.max(0, gam(Math.min(1, Math.max(0, c))))));
+}
+/** phase info at hour h: the phase we're in, the next one, and how far (0–1) we are into blending toward it */
+function todAt(h) {
+  const ph = [...P.tod].sort((a, b) => a.h - b.h), n = ph.length;
+  h = ((h % 24) + 24) % 24;
+  let k = n - 1; for (let i = 0; i < n; i++) if (ph[i].h <= h) k = i;
+  const cur = ph[k], nxt = ph[(k + 1) % n];
+  const end = nxt.h > cur.h ? nxt.h : nxt.h + 24, hh = h < cur.h ? h + 24 : h;
+  const start = end - Math.min(P.todBlend, end - cur.h);
+  const t = Math.min(1, Math.max(0, (hh - start) / (end - start)));
+  return {cur, nxt, t: t * t * (3 - 2 * t)};
+}
+/** the 5 glow colours at hour h, as 0–1 RGB */
+function todColors(h) {
+  const {cur, nxt, t} = todAt(h);
+  return cur.c.map((c, i) => { const a = hexToOklab(c), b = hexToOklab(nxt.c[i]); return oklabToRgb(a.map((v, j) => v + (b[j] - v) * t)); });
+}
+let playHour = null;                                     // set while "Play a day" runs
+let todReady = false;                                    // the panel/strip below are built after apply() is defined
+const todHourNow = () => playHour ?? (P.todLive ? ptHour() : P.todHour);
 
 const el = document.getElementById('glow'), inner = el.querySelector('.glow-inner'), shade = el.querySelector('.glow-shade');
 const RM = matchMedia('(prefers-reduced-motion: reduce)');   // reduced motion: hold the glow still
-const colors = () => (PALETTES[P.palette] || [P.c1, P.c2, P.c3, P.c4, P.c5]).map(getShaderColorFromString);
+const colors = () => P.palette === 'time'
+  ? todColors(todHourNow()).map(([r, g, b]) => [r, g, b, 1])
+  : (PALETTES[P.palette] || [P.c1, P.c2, P.c3, P.c4, P.c5]).map(getShaderColorFromString);
 const uniforms = () => ({
   u_colors: colors(), u_colorsCount: 5,
   u_distortion: P.distortion, u_swirl: P.swirl, u_grainMixer: P.grainMixer, u_grainOverlay: P.grainOverlay,
@@ -1100,7 +1160,7 @@ const pane = new Pane({container: document.getElementById('tweak'), title: 'Back
 pane.addBinding(P, 'enabled', {label: 'glow on'});
 const f0 = pane.addFolder({title: 'Look'});
 f0.addBinding(P, 'look', {options: {'Ember (original)': 'ember', 'Mono dark': 'mono-dark', 'Mono light (paper)': 'mono-light'}, label: 'theme'});
-f0.addBinding(P, 'palette', {options: {'Custom (ember)': 'custom', 'White smoke': 'white', 'Graphite': 'graphite', 'Ash (for paper)': 'ash', 'Ink': 'ink'}, label: 'glow colour'});
+f0.addBinding(P, 'palette', {options: {'Custom (ember)': 'custom', 'White smoke': 'white', 'Graphite': 'graphite', 'Ash (for paper)': 'ash', 'Ink': 'ink', 'Time of day (PT)': 'time'}, label: 'glow colour'});
 f0.addBinding(P, 'pattern', {options: {None: 'none', 'Dot grid': 'dots', 'Waves': 'waves', 'Swirl': 'swirl', 'Network (neuro)': 'neuro', 'Spiral': 'spiral'}});
 f0.addBinding(P, 'pOpacity', {min: 0, max: 1, step: 0.01, label: 'pattern opacity'});
 f0.addBinding(P, 'pScale', {min: 0.1, max: 4, step: 0.01, label: 'pattern scale'});
@@ -1138,7 +1198,7 @@ copyBtn.on('click', async () => {
   catch { console.log(JSON.stringify(P, null, 2)); copyBtn.title = 'Logged to console'; }
   setTimeout(() => copyBtn.title = 'Copy settings (JSON)', 1400);
 });
-pane.addButton({title: 'Reset to defaults'}).on('click', () => { Object.assign(P, DEFAULTS); pane.refresh(); apply(); });
+pane.addButton({title: 'Reset to defaults'}).on('click', () => { Object.assign(P, structuredClone(DEFAULTS)); save(); location.reload(); });   // reload: the phase bindings point at the old objects
 
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch {} };
 function apply() {
@@ -1149,10 +1209,96 @@ function apply() {
   applyMask();
   applyFrame();
   markLook();
+  if (todReady) showTod();     // strip + label follow phase / blend edits
   save();
 }
 markLook();
 pane.on('change', apply);
+
+/* ── time of day: panel controls, the 24h strip, live clock and "play a day" ── */
+const fT = pane.addFolder({title: 'Time of day (Pacific)', expanded: P.palette === 'time', index: 2});
+const todState = {now: ''};
+fT.addBinding(todState, 'now', {readonly: true, label: 'showing'});
+fT.addBinding(P, 'todLive', {label: 'follow clock'});
+fT.addBinding(P, 'todHour', {min: 0, max: 24, step: 0.05, label: 'preview hour'});
+fT.addBinding(P, 'todBlend', {min: 0.25, max: 6, step: 0.05, label: 'blend hours'});
+fT.addBinding(P, 'daySecs', {min: 8, max: 120, step: 1, label: 'play a day (s)'});
+P.tod.forEach(ph => {
+  const f = fT.addFolder({title: ph.name, expanded: false});
+  f.addBinding(ph, 'h', {min: 0, max: 23.75, step: 0.25, label: 'starts at'});
+  ph.c.forEach((_, i) => f.addBinding(ph.c, i, {label: i === 4 ? 'base' : `tone ${i + 1}`}));
+});
+
+const fmtH = h => { h = ((h % 24) + 24) % 24; const H = Math.floor(h), M = Math.floor((h - H) * 60); return `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}`; };
+const strip = document.getElementById('dayStrip'), stx = strip.getContext('2d');
+const toCss = ([r, g, b]) => `rgb(${r * 255 | 0},${g * 255 | 0},${b * 255 | 0})`;
+const stripCache = document.createElement('canvas'); let stripKey = '';
+function drawStrip() {
+  const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(strip.clientWidth * dpr), H = Math.round(strip.clientHeight * dpr);
+  if (!W) return;
+  if (strip.width !== W || strip.height !== H) { strip.width = W; strip.height = H; }
+  const band = (H - 12 * dpr) / 4;
+  const key = JSON.stringify([P.tod, P.todBlend, W, H]);
+  if (key !== stripKey) {                        // the 24h bands only change with the phase settings — cache them
+    stripKey = key; stripCache.width = W; stripCache.height = H;
+    const c = stripCache.getContext('2d');
+    for (let x = 0; x < W; x++) {                // each column = that hour's 4 glow tones stacked
+      const cs = todColors(x / W * 24);
+      for (let i = 0; i < 4; i++) { c.fillStyle = toCss(cs[i]); c.fillRect(x, i * band, 1, band + 1); }
+    }
+    c.fillStyle = '#e7e7e3'; c.fillRect(0, 4 * band, W, H - 4 * band);
+    c.fillStyle = '#666'; c.font = `${8 * dpr}px ui-monospace,monospace`; c.textBaseline = 'bottom';
+    for (const h of [0, 6, 12, 18]) c.fillText(String(h), h / 24 * W + 2 * dpr, H - 1 * dpr);
+  }
+  stx.clearRect(0, 0, W, H); stx.drawImage(stripCache, 0, 0);
+  const mx = todHourNow() / 24 * W;              // marker = the hour currently shown
+  stx.fillStyle = '#111'; stx.fillRect(mx - dpr, 0, 2 * dpr, H);
+  stx.fillStyle = '#fff'; stx.fillRect(mx - dpr / 2, 0, dpr, 4 * band);
+}
+function showTod() {
+  const h = todHourNow(), {cur, nxt, t} = todAt(h);
+  const what = t > 0.02 && t < 0.98 ? `${cur.name} → ${nxt.name} ${Math.round(t * 100)}%` : (t >= 0.98 ? nxt.name : cur.name);
+  const src = playHour !== null ? 'playing' : (P.todLive ? 'PT now' : 'preview');
+  todState.now = `${what} · ${fmtH(h)} ${src}`;
+  document.getElementById('todLabel').textContent = `${fmtH(h)} · ${what}`;
+  fT.refresh(); drawStrip();
+}
+function pushTod() { if (P.palette === 'time') mount.setUniforms({u_colors: colors()}); showTod(); }
+
+// drag on the strip to preview an hour (switches to the time-of-day palette and off the live clock)
+let dragging = false;
+const scrub = e => {
+  const r = strip.getBoundingClientRect();
+  P.todHour = Math.min(24, Math.max(0, (e.clientX - r.left) / r.width * 24));
+  P.todLive = false; P.palette = 'time'; stopPlay();
+  pane.refresh(); apply();
+};
+strip.addEventListener('pointerdown', e => { dragging = true; strip.setPointerCapture(e.pointerId); scrub(e); });
+strip.addEventListener('pointermove', e => { if (dragging) scrub(e); });
+strip.addEventListener('pointerup', () => { dragging = false; });
+
+// play a whole day from the current hour in `daySecs` seconds
+const playBtn = document.getElementById('todPlay');
+let playRaf = 0;
+function stopPlay() { if (playHour === null) return; cancelAnimationFrame(playRaf); playHour = null; playBtn.textContent = '▶ Play a day'; playBtn.classList.remove('on'); pushTod(); }
+playBtn.onclick = () => {
+  if (playHour !== null) return stopPlay();
+  if (P.palette !== 'time') { P.palette = 'time'; pane.refresh(); apply(); }
+  const from = todHourNow(), t0 = performance.now();
+  playBtn.textContent = '■ Stop'; playBtn.classList.add('on');
+  const step = now => {
+    const k = (now - t0) / 1000 / P.daySecs;
+    if (k >= 1) return stopPlay();
+    playHour = from + k * 24; pushTod();
+    playRaf = requestAnimationFrame(step);
+  };
+  playRaf = requestAnimationFrame(step);
+};
+
+setInterval(() => { if (playHour === null) pushTod(); }, 20000);   // live clock: re-evaluate every 20s (transitions take hours)
+new ResizeObserver(drawStrip).observe(strip);
+todReady = true;
+showTod();
 
 /* ── perf probe: switch layers off one at a time and measure fps, so we know what's actually expensive here ── */
 const fpsOver = ms => new Promise(res => {

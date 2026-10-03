@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nav Pipe Lab</title>
+<link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css">
+<style>
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bd79c75cceb3db1a6_Helvetica.ttf);font-weight:400}
+:root{
+  --bg:#050505;--fg:#ededeb;--dim:#85857f;--line:#1f1f1d;
+  --sans:"aktiv-grotesk","Helv",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;padding:48px 340px 48px 48px}
+h1{font-size:14px;font-weight:700;margin-bottom:6px}
+.lede{color:var(--dim);font-size:12.5px;max-width:560px;line-height:1.5;margin-bottom:40px}
+.lede kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+/* filter bar */
+.filters{display:flex;gap:4px;margin-bottom:18px}
+.filters button{font:inherit;font-size:11.5px;color:var(--dim);background:none;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+.filters button.on{color:#000;background:var(--fg);border-color:var(--fg)}
+.filters .count{opacity:.55;margin-left:4px}
+
+/* card grid */
+#variants{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px}
+.family{grid-column:1/-1;font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:22px 0 0}
+.family:first-child{margin-top:0}
+.variant{display:flex;flex-direction:column;gap:18px;padding:16px 18px 22px;border:1px solid var(--line);border-radius:10px;background:#080808;cursor:pointer;transition:border-color .2s}
+.variant:hover{border-color:#333}
+.variant.active{border-color:var(--dim)}
+.variant .meta{display:flex;gap:10px;align-items:baseline}
+.variant .meta b{flex:none;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:400}
+.variant .meta p{color:var(--dim);font-size:11.5px;line-height:1.45}
+.variant .meta .hov{display:block;margin-top:4px;color:var(--soft,#cfcfcb)}
+.variant .slot{display:grid;place-items:center;min-height:64px}
+.hidden{display:none!important}
+
+/* ── the nav itself ─────────────────────────────── */
+.navshell{display:inline-block;padding:var(--pad,5px);border:1px solid rgba(255,255,255,var(--rim,.16));border-radius:calc(var(--r,6px) + var(--pad,5px));background:rgba(255,255,255,.02)}
+.variant.final{grid-column:1/-1}
+.variant.final .slot{min-height:120px}
+.pipenav{position:relative;display:inline-block;isolation:isolate}
+.pipenav svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.pipenav .row{position:relative;display:flex;gap:var(--gap,10px)}
+.pipenav button{
+  font:inherit;font-size:12.5px;background:none;border:0;cursor:pointer;
+  height:var(--h,40px);padding:0 var(--px,18px);
+  color:#fff;mix-blend-mode:difference;          /* white on the dark blocks, black on the indicator — even mid-flow */
+  border-radius:var(--r,6px);outline-offset:3px;
+}
+.pipenav button:focus-visible{outline:1px solid var(--dim)}
+
+#tweak{position:fixed;right:14px;top:14px;width:300px;max-height:calc(100vh - 28px);overflow:auto;z-index:10}
+@media (max-width:900px){
+  body{padding:24px 16px 420px}
+  #variants{grid-template-columns:1fr}
+  #tweak{top:auto;bottom:0;right:0;left:0;width:auto;max-height:45vh}
+}
+</style>
+</head>
+<body>
+
+<h1>Sticky nav — pipe indicator, 10 variations</h1>
+<p class="lede">Click the buttons. The selection speeds up then slows down and flows through a pipe in each gap it crosses.
+  Click a card to open its controls. <kbd>Run demo</kbd> plays every visible card at once.</p>
+
+<div class="filters" id="filters"></div>
+<div id="variants"></div>
+<div id="tweak"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="sharedDefs"></defs></svg>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
+
+const LABELS = ['Work', 'About', 'Process', 'Contact'];
+const EASES = {'power2.inOut': 'power2.inOut', 'power3.inOut': 'power3.inOut', 'power4.inOut': 'power4.inOut', 'expo.inOut': 'expo.inOut', 'sine.inOut': 'sine.inOut', 'circ.inOut': 'circ.inOut'};
+
+/* lag    — how long the trailing edge waits (0 = rigid bead, higher = more stretch through the pipe)
+   pipe   — pipe thickness in px;  swell — extra thickness while liquid is passing through
+   goo    — blur radius of the metaball filter that rounds the necks
+   pipes  — whether the (dark) pipes are visible at rest                                        */
+const VARIANTS = [
+  {name: 'V1 · Pipe', desc: 'Hidden pipes. A thin white thread appears only while the selection crosses a gap.',
+   dur: 0.7, ease: 'power3.inOut', lag: 0.14, radius: 6, gap: 10, pipe: 4, swell: 0, goo: 4, pipes: false},
+  {name: 'V2 · Tube', desc: 'Dark tubes always join the blocks. The selection fills them like liquid as it passes.',
+   dur: 0.8, ease: 'power2.inOut', lag: 0.2, radius: 6, gap: 10, pipe: 6, swell: 0, goo: 3, pipes: true},
+  {name: 'V3 · Bead', desc: 'No stretch. The block keeps its width and squeezes through the pipe as one bead.',
+   dur: 0.65, ease: 'power4.inOut', lag: 0, radius: 8, gap: 14, pipe: 3, swell: 0, goo: 6, pipes: false},
+  {name: 'V4 · Elastic', desc: 'The front edge shoots ahead; the back edge follows late, briefly spanning both buttons.',
+   dur: 0.9, ease: 'expo.inOut', lag: 0.5, radius: 4, gap: 8, pipe: 4, swell: 0, goo: 4, pipes: false},
+  {name: 'V5 · Swell', desc: 'Visible thin tubes that bulge as the liquid is pushed through them.',
+   dur: 0.8, ease: 'power3.inOut', lag: 0.22, radius: 6, gap: 12, pipe: 3, swell: 7, goo: 2, pipes: true},
+
+  /* ── droplet family: the selection pinches off as bead(s), travels the tube, and is pulled into the target ──
+     drain   — share of the move over which the source empties (and the target fills)
+     beads   — droplets in flight;  stagger — spacing between them (share of the move)
+     dropW/H — bead size;  stretch — how much a bead elongates at top speed
+     magnet  — how far the target reaches out (px) to grab an incoming bead;  range — distance it starts reaching from
+     jiggle  — wobble amplitude when the target absorbs the liquid
+     hover   — style: lean | reach | tease | ripple | jelly;  hoverReach px;  hoverDur s;  hoverEase;  hoverSpeed (ripple loops/s) */
+  {name: 'D1 · Merge', mode: 'drop', desc: 'One bead pinches off, rides the tube, and the target reaches out to swallow it. Small wobble on landing.',
+   dur: 0.85, ease: 'power3.inOut', radius: 6, gap: 12, pipe: 3, swell: 6, goo: 5, pipes: true,
+   drain: 0.45, beads: 1, stagger: 0.12, dropW: 18, dropH: 12, stretch: 0.6, magnet: 10, range: 40, jiggle: 0.12,
+   hover: 'lean', hoverReach: 9, hoverDur: 0.45, hoverEase: 'power3.out', hoverSpeed: 1.2,
+   hoverDesc: 'Lean — the selection bulges toward the hovered button; it buds back.'},
+  {name: 'D2 · Magnet', mode: 'drop', desc: 'Strong pull. The target throws a long arm out early and snaps the bead in, then shudders.',
+   dur: 0.44, ease: 'expo.inOut', radius: 9, gap: 14, pipe: 3, swell: 5, goo: 6, pipes: true,
+   drain: 0.4, beads: 1, stagger: 0.175, dropW: 28, dropH: 12, stretch: 0.4, magnet: 24, range: 113, jiggle: 0.22,
+   hover: 'reach', hoverReach: 22, hoverDur: 0.6, hoverEase: 'elastic.out(1, 0.5)', hoverSpeed: 1.2,
+   hoverDesc: 'Reach — the hovered button throws an arm out toward the selection.'},
+  {name: 'D3 · Drip', mode: 'drop', desc: 'The source clings on — a long stretched neck before the drop finally lets go and falls into the next block.',
+   dur: 0.2, ease: 'expo.inOut', radius: 2, gap: 12, pipe: 8, swell: 6, goo: 4.5, pipes: false,
+   drain: 0.75, beads: 1, stagger: 0.12, dropW: 12, dropH: 10, stretch: 0.6, magnet: 12, range: 50, jiggle: 0.14,
+   hover: 'jelly', hoverReach: 16, hoverDur: 0.7, hoverEase: 'power2.out', hoverSpeed: 1.2,
+   hoverDesc: 'Jelly — the selection leans and wobbles toward the hover.'},
+  {name: 'D4 · Pulse', mode: 'drop', desc: 'Peristalsis — three beads pushed through the tube in a row, each one absorbed with a little kick.',
+   dur: 0.38, ease: 'power2.inOut', radius: 6, gap: 12, pipe: 3, swell: 5, goo: 4, pipes: true,
+   drain: 0.6, beads: 3, stagger: 0.14, dropW: 12, dropH: 10, stretch: 0.5, magnet: 8, range: 34, jiggle: 0.1,
+   hover: 'ripple', hoverReach: 6, hoverDur: 0.4, hoverEase: 'power2.out', hoverSpeed: 1.4,
+   hoverDesc: 'Ripple — little beads keep flowing down the tube toward the hovered button.'},
+  {name: 'D5 · Jelly', mode: 'drop', desc: 'A big soft bead with no tube to hold it. Stretches with speed and lands with a heavy wobble.',
+   dur: 0.27, ease: 'expo.inOut', radius: 4, gap: 12, pipe: 1, swell: 0, goo: 3, pipes: false,
+   drain: 0.41, beads: 1, stagger: 0.095, dropW: 28, dropH: 26, stretch: 0.9, magnet: 14, range: 60, jiggle: 0.3,
+   hover: 'jelly', hoverReach: 10, hoverDur: 0.36, hoverEase: 'expo.out', hoverSpeed: 1.2,
+   hoverDesc: 'Jelly — the selection leans and wobbles toward the hover; the target glows a soft bud.'},
+  /* pass-through: one continuous throw. The drop keeps its shape at speed and is drawn in front of every block;
+     blocks it crosses bulge as it goes through them (they never fill).
+     perHop — extra duration per button crossed (share of dur);  passBulge — how much a crossed block swells */
+  {name: 'D6 · Pass-through', mode: 'drop', relay: true, desc: 'Drip thrown at speed — the drop keeps its shape and visibly punches through every button on the way, each one bulging as it passes.',
+   dur: 0.42, ease: 'power3.inOut', radius: 6, gap: 12, pipe: 3, swell: 6, goo: 6, pipes: true,
+   drain: 0.75, beads: 1, stagger: 0.12, dropW: 14, dropH: 12, stretch: 0.7, magnet: 12, range: 50, jiggle: 0.14,
+   perHop: 0.3, passBulge: 0.14,
+   hover: 'tease', hoverReach: 16, hoverDur: 0.7, hoverEase: 'power2.out', hoverSpeed: 1.2,
+   hoverDesc: 'Tease — a drop starts to pinch off down the tube and hangs on a neck.'},
+
+  /* ── final candidate: D3's tuning, D5's big drop so it visibly passes through the middle buttons (they never fill),
+     sitting in a tray with a light rim. container/pad/rim style the tray. */
+  {name: 'Drip · pass-through', family: 'final', mode: 'drop', relay: true,
+   desc: 'D3 Drip timing with a D5-sized drop that visibly passes through every button on the way — no filling, just the drop crossing them.',
+   dur: 0.2, ease: 'expo.inOut', radius: 2, gap: 12, pipe: 8, swell: 6, goo: 4.5, pipes: false,
+   drain: 0.75, beads: 1, stagger: 0.12, dropW: 26, dropH: 22, stretch: 0.9, magnet: 12, range: 50, jiggle: 0.14,
+   perHop: 0.3, passBulge: 0,
+   hover: 'jelly', hoverReach: 16, hoverDur: 0.7, hoverEase: 'power2.out', hoverSpeed: 1.2,
+   container: true, pad: 5, rim: 0.16,
+   hoverDesc: 'Jelly — the selection leans and wobbles toward the hover.'},
+];
+const HOVERS = {lean: 'lean', reach: 'reach', tease: 'tease', ripple: 'ripple', jelly: 'jelly', none: 'none'};
+const HOVER_EASES = {'power2.out': 'power2.out', 'power3.out': 'power3.out', 'expo.out': 'expo.out', 'back.out(2)': 'back.out(2)', 'elastic.out(1, 0.5)': 'elastic.out(1, 0.5)', 'elastic.out(1, 0.35)': 'elastic.out(1, 0.35)'};
+const SHARED = {height: 40, padX: 18, fill: '#1c1a19', ink: '#f4f2ee'};
+const DEFAULTS = JSON.parse(JSON.stringify({VARIANTS, SHARED}));
+
+const KEY = 'proto-pipenav-v2';
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { s.VARIANTS?.forEach((v, i) => { if (!VARIANTS[i]) return; const {name, desc, hoverDesc, ...tuned} = v; Object.assign(VARIANTS[i], tuned); }); Object.assign(SHARED, s.SHARED); } } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({VARIANTS, SHARED})); } catch {} };
+
+const NS = 'http://www.w3.org/2000/svg';
+const mk = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
+
+class PipeNav {
+  constructor(host, P, id) {
+    this.P = P; this.id = id; this.sel = 0; this.S = {l: 0, r: 0, p: 1, from: 0, to: 0};
+    this.el = document.createElement('div'); this.el.className = 'pipenav';
+    this.el.innerHTML = `<div class="row" role="tablist">${LABELS.map((t, i) => `<button role="tab" aria-selected="${i === 0}">${t}</button>`).join('')}</div>`;
+    if (P.container) {            // tray: a light-rimmed container with a little padding around the buttons
+      this.shell = document.createElement('div'); this.shell.className = 'navshell';
+      this.shell.appendChild(this.el); host.appendChild(this.shell);
+    } else host.appendChild(this.el);
+    this.btns = [...this.el.querySelectorAll('button')];
+    this.btns.forEach((b, i) => {
+      b.addEventListener('click', () => this.go(i));
+      b.addEventListener('pointerenter', () => this.hover(i));
+    });
+    this.el.querySelector('.row').addEventListener('pointerleave', () => this.hover(null));
+    this.tick = () => { this.S.clock += gsap.ticker.deltaRatio() / 60; this.render(); };
+    this.build();
+  }
+
+  build() {
+    const P = this.P, el = this.el;
+    el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--r', P.radius + 'px');
+    el.style.setProperty('--h', SHARED.height + 'px'); el.style.setProperty('--px', SHARED.padX + 'px');
+    if (this.shell) {
+      this.shell.style.setProperty('--pad', P.pad + 'px'); this.shell.style.setProperty('--rim', P.rim);
+      this.shell.style.setProperty('--r', P.radius + 'px');
+    }
+    this.svg?.remove();
+    const H = SHARED.height;
+    this.B = this.btns.map(b => ({x: b.offsetLeft, w: b.offsetWidth}));
+    const W = el.offsetWidth;
+    const svg = this.svg = mk('svg', {width: W, height: H, viewBox: `0 0 ${W} ${H}`});
+    el.prepend(svg);
+    const defs = mk('defs', {}, svg);
+
+    // metaball filter: blur → alpha threshold → put the crisp original back on top
+    const f = mk('filter', {id: `goo${this.id}`, x: -20, y: -20, width: W + 40, height: H + 40, filterUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB'}, defs);
+    mk('feGaussianBlur', {in: 'SourceGraphic', stdDeviation: P.goo, result: 'b'}, f);
+    mk('feColorMatrix', {in: 'b', mode: 'matrix', values: '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9', result: 'g'}, f);
+    mk('feComposite', {in: 'SourceGraphic', in2: 'g', operator: 'atop'}, f);
+
+    // the channel: every block plus a pipe across every gap. The indicator only exists inside it.
+    const clip = mk('clipPath', {id: `ch${this.id}`}, defs);
+    this.pipes = [];
+    const pipeRect = (parent, i) => {
+      const a = this.B[i], b = this.B[i + 1], x = a.x + a.w - P.radius, w = b.x + P.radius - x;
+      return mk('rect', {x, width: w, y: (H - P.pipe) / 2, height: P.pipe, rx: P.pipe / 2}, parent);
+    };
+    this.B.forEach((b, i) => {
+      mk('rect', {x: b.x, y: 0, width: b.w, height: H, rx: P.radius}, clip);
+      if (i < this.B.length - 1) this.pipes.push({i, clip: pipeRect(clip, i)});
+    });
+
+    // base: dark blocks (+ pipes when visible), gooed so the tube joins are smooth
+    const base = mk('g', {filter: `url(#goo${this.id})`, fill: SHARED.fill}, svg);
+    this.baseRects = this.B.map(b => mk('rect', {x: b.x, y: 0, width: b.w, height: H, rx: P.radius}, base));
+    if (P.pipes) this.pipes.forEach(p => p.base = pipeRect(base, p.i));
+
+    gsap.killTweensOf(this.S); this.tl?.kill();
+    if (P.mode === 'drop') {
+      // droplets: free shapes (no clip) that the goo filter fuses whenever they get close — that's the "magnetic" merge
+      const goo = mk('g', {filter: `url(#goo${this.id})`, fill: SHARED.ink}, svg);
+      this.src = mk('rect', {}, goo);
+      this.dst = mk('rect', {}, goo);
+      this.bud = mk('rect', {}, goo);
+      this.beadEls = Array.from({length: P.beads}, () => mk('rect', {}, goo));
+      // hover shapes: an arm off the selection, a bud off the hovered button, and loose beads
+      this.hl = mk('rect', {}, goo);
+      this.hb = mk('rect', {}, goo);
+      this.hBeads = Array.from({length: 3}, () => mk('rect', {}, goo));
+      this.ease = gsap.parseEase(P.ease);
+      gsap.ticker.remove(this.tick);
+      Object.assign(this.S, {a: this.sel, b: this.sel, t: 1, jig: 0, h: 0, hi: null, clock: 0});
+      return this.render();
+    }
+
+    // indicator: a bar clipped to the channel, then gooed so it necks into the pipe instead of cutting off square
+    const goo = mk('g', {filter: `url(#goo${this.id})`}, svg);
+    const inner = mk('g', {'clip-path': `url(#ch${this.id})`}, goo);
+    this.bar = mk('rect', {y: -2, height: H + 4, fill: SHARED.ink}, inner);
+
+    const s = this.B[this.sel]; Object.assign(this.S, {l: s.x, r: s.x + s.w, p: 1});
+    this.render();
+  }
+
+  hover(i) {
+    const P = this.P, S = this.S;
+    if (P.mode !== 'drop' || P.hover === 'none') return;
+    const idle = S.t >= 1;
+    if (i === null || i === this.sel || !idle) {
+      gsap.to(S, {h: 0, duration: P.hoverDur * 0.6, ease: 'power2.out', overwrite: 'auto',
+        onUpdate: () => this.render(), onComplete: () => { S.hi = null; gsap.ticker.remove(this.tick); this.render(); }});
+      return;
+    }
+    if (S.hi !== null && S.hi !== i) S.h *= 0.25;     // switching targets: let the old reach collapse most of the way first
+    S.hi = i;
+    gsap.to(S, {h: 1, duration: P.hoverDur, ease: P.hoverEase, overwrite: 'auto', onUpdate: () => this.render()});
+    if (P.hover === 'ripple') { gsap.ticker.remove(this.tick); gsap.ticker.add(this.tick); }
+    if (P.hover === 'jelly') gsap.fromTo(S, {jig: 0.6}, {jig: 0, duration: 0.9, ease: 'elastic.out(1, 0.3)', overwrite: 'auto', onUpdate: () => this.render()});
+  }
+
+  goDrop(j) {
+    const P = this.P, S = this.S;
+    gsap.killTweensOf(S); this.tl?.kill();
+    gsap.ticker.remove(this.tick);
+    // pass-through: longer jumps get a bit more time so the drop is readable as it crosses each block
+    const D = P.relay ? P.dur * (1 + P.perHop * (Math.abs(j - this.sel) - 1)) : P.dur;
+    Object.assign(S, {a: this.sel, b: j, t: 0, h: 0, hi: null});
+    this.sel = j;
+    gsap.to(S, {t: 1, duration: D, ease: 'none', onUpdate: () => this.render()});
+    // a wobble each time a bead is swallowed
+    const span = 1 - (P.beads - 1) * P.stagger;
+    for (let k = 0; k < P.beads; k++) {
+      const at = (k * P.stagger + span * 0.9) * D;
+      gsap.fromTo(S, {jig: 1}, {jig: 0, duration: 0.9, delay: at, ease: 'elastic.out(1, 0.3)', immediateRender: false, overwrite: false, onUpdate: () => this.render()});
+    }
+  }
+
+  renderDrop() {
+    const {S, P, B} = this, H = SHARED.height, e = this.ease;
+    const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const put = (r, x, y, w, h, rx) => { r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', Math.max(0, w)); r.setAttribute('height', Math.max(0, h)); r.setAttribute('rx', Math.min(rx, h / 2, w / 2)); };
+    const A = B[S.a], T = B[S.b], dir = Math.sign((T.x - A.x) || 1), t = S.t;
+    const ca = A.x + A.w / 2, cb = T.x + T.w / 2;
+    const moving = S.a !== S.b;
+
+    // source drains toward its exit edge; target fills from its entry edge
+    const rem = moving ? 1 - ss(0, P.drain, t) : 0;
+    const fill = moving ? ss(1 - P.drain, 1, t) : 1;
+    const sh = H * (0.5 + 0.5 * rem), sw = A.w * rem;
+    put(this.src, dir > 0 ? A.x + A.w - sw : A.x, (H - sh) / 2, sw, sh, P.radius);
+
+    // hover geometry (idle only): selection → hovered button
+    const hov = !moving && S.hi !== null && S.h > 0.001 ? S.h : 0;
+    const HB = hov ? B[S.hi] : null, hdir = hov ? Math.sign(HB.x - A.x) : 0;
+    const exitE = hov ? (hdir > 0 ? A.x + A.w : A.x) : 0, nearE = hov ? (hdir > 0 ? HB.x : HB.x + HB.w) : 0;
+
+    const J = P.jiggle * S.jig, sy = 1 + J, sx = 1 - J * 0.6;
+    let fw = T.w * fill * sx, fh = H * sy * (0.55 + 0.45 * fill);
+    let fx = fill >= 1 ? T.x + (T.w - fw) / 2 : (dir > 0 ? T.x : T.x + T.w - fw);
+    if (hov && P.hover === 'jelly') {           // the whole body leans toward the hover and squashes a little
+      const grow = 0.07 * hov; fx += hdir * P.hoverReach * 0.35 * hov - fw * grow / 2; fw *= 1 + grow; fh *= 1 - 0.05 * hov;
+    }
+    put(this.dst, fx, (H - fh) / 2, fw, fh, P.radius);
+
+    // beads
+    const span = 1 - (P.beads - 1) * P.stagger, xs = [];
+    let lead = null;
+    this.beadEls.forEach((r, k) => {
+      const tk = moving ? Math.min(1, Math.max(0, (t - k * P.stagger) / span)) : 1;
+      const ek = e(tk), x = ca + (cb - ca) * ek;
+      const vis = ss(0, 0.12, tk) * (1 - ss(0.86, 1, tk));
+      const v = Math.min(1.5, Math.abs(e(Math.min(1, tk + 0.005)) - e(Math.max(0, tk - 0.005))) / 0.01 / 2);
+      const w = P.dropW * (1 + P.stretch * v) * vis, h = P.dropH / (1 + P.stretch * v * 0.4) * vis;
+      put(r, x - w / 2, (H - h) / 2, w, h, h / 2);
+      xs.push({x, vis});
+      if (k === 0 && tk > 0 && tk < 1) lead = x + dir * w / 2;
+    });
+
+    // pass-through: every block strictly between source and target swells while the drop is inside it
+    if (P.relay) this.baseRects.forEach((r, k) => {
+      const b = B[k], cx = b.x + b.w / 2;
+      let o = 0;
+      if (moving && k > Math.min(S.a, S.b) && k < Math.max(S.a, S.b))
+        for (const d of xs) o = Math.max(o, d.vis * Math.max(0, 1 - Math.abs(d.x - cx) / (b.w / 2 + P.dropW)));
+      o = o * o * (3 - 2 * o);
+      const h = H * (1 + P.passBulge * o), w = b.w * (1 + P.passBulge * 0.35 * o);
+      put(r, cx - w / 2, (H - h) / 2, w, h, P.radius);
+    });
+
+    // magnet: the target throws an arm toward the incoming bead, then pulls it in
+    const near = dir > 0 ? T.x : T.x + T.w;
+    let len = 0;
+    if (lead !== null) len = P.magnet * Math.pow(1 - ss(0, P.range, Math.abs(near - lead)), 1.5) * (1 - fill);
+    const bh = P.dropH * 0.85, bw = len + P.radius;
+    put(this.bud, dir > 0 ? near - bw : near - P.radius, (H - bh) / 2, len > 0.3 ? bw + P.radius : 0, bh, bh / 2);
+
+    // ── hover ──
+    // arm(r, from, d, len, th): a rounded bar growing out of an edge at `from` in direction d, rooted inside the block
+    const arm = (r, from, d, len, th) => {
+      if (len <= 0.3 || th <= 0.3) return put(r, 0, 0, 0, 0, 0);
+      put(r, d > 0 ? from - P.radius : from - len, (H - th) / 2, len + P.radius, th, th / 2);
+    };
+    const R = P.hoverReach, dist = Math.abs(nearE - exitE);
+    let hl = 0, hlT = 0, hb = 0, hbT = 0;
+    const loose = [];                                   // {x, w, h} beads floating in the tube
+    if (hov) switch (P.hover) {
+      case 'lean':  hl = R * hov; hlT = P.dropH; hb = R * 0.5 * hov; hbT = P.dropH * 0.7; break;
+      case 'reach': hb = R * hov; hbT = P.dropH * 0.8; hl = R * 0.25 * hov; hlT = P.dropH * 0.8; break;
+      case 'tease': {
+        // the drop hangs on a neck that thins as it stretches, but stays thick enough to survive the goo
+        hl = R * hov; hlT = Math.max(4, P.dropH * 0.5 * (1 - 0.4 * hov));
+        hb = R * 0.3 * hov; hbT = P.dropH * 0.6; break;
+      }
+      case 'ripple': {
+        hl = R * hov; hlT = P.dropH * 0.7; hb = R * 0.6 * hov; hbT = P.dropH * 0.7;
+        for (let k = 0; k < 3; k++) {
+          const ph = (S.clock * P.hoverSpeed + k / 3) % 1, s = hov * Math.sin(Math.PI * ph);
+          loose.push({x: exitE + (nearE - exitE) * ph, w: P.dropH * 0.8 * s, h: P.dropH * 0.7 * s});
+        }
+        break;
+      }
+      case 'jelly': hb = R * 0.5 * hov; hbT = P.dropH * 0.5; break;
+    }
+    // hover only hints at the attraction: the two sides must never touch (the goo would fuse them) — merging is the click's job
+    if (hov && P.hover !== 'ripple') {
+      const drop = P.hover === 'tease' ? P.dropW * 0.7 * Math.min(1, hov) : 0;
+      const room = Math.max(0, dist - P.goo * 0.8 - 2), used = hl + hb + drop / 2;
+      if (used > room) { const k = room / used; hl *= k; hb *= k; }
+      if (drop) loose.push({x: exitE + hdir * hl, w: drop * Math.min(1, room / Math.max(used, 1e-3)), h: P.dropH * 0.9 * Math.min(1, hov)});
+    }
+    arm(this.hl, exitE, hdir, hl, hlT);
+    arm(this.hb, nearE, -hdir, hb, hbT);
+    this.hBeads.forEach((r, k) => { const b = loose[k]; b ? put(r, b.x - b.w / 2, (H - b.h) / 2, b.w, b.h, b.h / 2) : put(r, 0, 0, 0, 0, 0); });
+    for (const b of loose) xs.push({x: b.x, vis: Math.min(1, b.h / P.dropH)});
+
+    // tubes bulge around each passing bead (and swell gently along a hovered path)
+    if (P.swell) this.pipes.forEach(p => {
+      const pc = (B[p.i].x + B[p.i].w + B[p.i + 1].x) / 2;
+      let k = 0; for (const b of xs) k = Math.max(k, b.vis * Math.exp(-(((b.x - pc) / (P.dropW + P.gap)) ** 2)));
+      if (hov && pc > Math.min(exitE, nearE) && pc < Math.max(exitE, nearE)) k = Math.max(k, 0.35 * hov);
+      const h = P.pipe + P.swell * k;
+      for (const r of [p.clip, p.base]) if (r) { r.setAttribute('height', h); r.setAttribute('y', (H - h) / 2); r.setAttribute('rx', h / 2); }
+    });
+  }
+
+  go(j) {
+    if (j === this.sel && !gsap.isTweening(this.S)) return;
+    this.btns.forEach((b, i) => b.setAttribute('aria-selected', i === j));
+    if (this.P.mode === 'drop') return this.goDrop(j);
+    const P = this.P, S = this.S, t = this.B[j];
+    const right = t.x + t.w / 2 > (S.l + S.r) / 2;
+    S.from = Math.min(this.sel, j); S.to = Math.max(this.sel, j);
+    this.sel = j;
+    gsap.killTweensOf(S);
+    const d = P.dur * (1 - P.lag), lag = P.dur * P.lag;
+    const lead = right ? 'r' : 'l', trail = right ? 'l' : 'r';
+    gsap.to(S, {[lead]: right ? t.x + t.w : t.x, duration: d, ease: P.ease, onUpdate: () => this.render()});
+    gsap.to(S, {[trail]: right ? t.x : t.x + t.w, duration: d, delay: lag, ease: P.ease, onUpdate: () => this.render()});
+    gsap.fromTo(S, {p: 0}, {p: 1, duration: P.dur, ease: 'none', onUpdate: () => this.render()});
+  }
+
+  render() {
+    if (this.P.mode === 'drop') return this.renderDrop();
+    const {S, P} = this, H = SHARED.height;
+    this.bar.setAttribute('x', S.l); this.bar.setAttribute('width', Math.max(0, S.r - S.l));
+    if (P.swell) {
+      const k = Math.sin(Math.PI * S.p);
+      this.pipes.forEach(p => {
+        const h = P.pipe + (p.i >= S.from && p.i < S.to ? P.swell * k : 0);
+        for (const r of [p.clip, p.base]) if (r) { r.setAttribute('height', h); r.setAttribute('y', (H - h) / 2); r.setAttribute('rx', h / 2); }
+      });
+    }
+  }
+}
+
+/* page */
+const host = document.getElementById('variants');
+const FAMILY = {final: 'Final candidate', pipe: 'Pipe — flows through a channel', drop: 'Droplet — magnetic merge'};
+const fam = P => P.family || P.mode || 'pipe';
+const heads = {}, cards = [], navs = [];
+// final candidate(s) first, then the rest in their original order; navs/cards stay indexed by VARIANTS index
+const order = VARIANTS.map((_, i) => i).sort((a, b) => (fam(VARIANTS[b]) === 'final') - (fam(VARIANTS[a]) === 'final'));
+order.forEach(i => {
+  const P = VARIANTS[i];
+  if (!heads[fam(P)]) {
+    const h = heads[fam(P)] = document.createElement('h2'); h.className = 'family';
+    h.textContent = FAMILY[fam(P)]; host.appendChild(h);
+  }
+  const card = document.createElement('section'); card.className = 'variant' + (fam(P) === 'final' ? ' final' : ''); card.dataset.fam = fam(P);
+  card.innerHTML = `<div class="meta"><b>${P.name}</b><p>${P.desc}${P.hoverDesc ? `<span class="hov">Hover · ${P.hoverDesc}</span>` : ''}</p></div><div class="slot"></div>`;
+  host.appendChild(card); cards[i] = card;
+  card.addEventListener('click', e => { if (!e.target.closest('button')) focusVariant(i); });
+  navs[i] = new PipeNav(card.querySelector('.slot'), P, i);
+});
+
+// filter: Final / All / Pipe / Droplet (remembered)
+let filter = 'final';
+try { filter = localStorage.getItem(KEY + ':filter2') || filter; } catch {}
+const FILTERS = [['final', 'Final'], ['all', 'All'], ['pipe', 'Pipe'], ['drop', 'Droplet']];
+const fbar = document.getElementById('filters');
+fbar.innerHTML = FILTERS.map(([k, t]) => `<button data-f="${k}">${t}<span class="count">${k === 'all' ? VARIANTS.length : VARIANTS.filter(v => fam(v) === k).length}</span></button>`).join('');
+function applyFilter(f) {
+  filter = f; try { localStorage.setItem(KEY + ':filter2', f); } catch {}
+  fbar.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  cards.forEach(c => c.classList.toggle('hidden', f !== 'all' && c.dataset.fam !== f));
+  for (const k in heads) heads[k].classList.toggle('hidden', f !== 'all' && f !== k);
+  navs.forEach(n => n.build());   // hidden cards measure 0 wide — re-measure the ones now showing
+}
+fbar.addEventListener('click', e => { const b = e.target.closest('button'); if (b) applyFilter(b.dataset.f); });
+applyFilter(filter);
+window.navs = navs;   // console poking
+const rebuildAll = () => navs.forEach(n => n.build());
+document.fonts.ready.then(rebuildAll);   // widths change once the webfont lands
+
+/* controls */
+const pane = new Pane({container: document.getElementById('tweak'), title: 'Pipe nav'});
+let demoTimer = null;
+const demoBtn = pane.addButton({title: 'Run demo'});
+const SEQ = [3, 1, 2, 0, 2, 3, 0];
+demoBtn.on('click', () => {
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; demoBtn.title = 'Run demo'; return; }
+  let k = 0; const step = () => navs.forEach((n, i) => { if (!cards[i].classList.contains('hidden')) n.go(SEQ[k % SEQ.length]); }); step();
+  demoTimer = setInterval(() => { k++; step(); }, 1300); demoBtn.title = 'Stop demo';
+});
+
+// one tab strip per family so the titles stay readable
+const fams = ['final', 'pipe', 'drop'].filter(fm => VARIANTS.some(v => fam(v) === fm));
+const pages = [], folders = {};
+fams.forEach(fm => {
+  const idx = VARIANTS.map((v, i) => fam(v) === fm ? i : -1).filter(i => i >= 0);
+  const f = folders[fm] = pane.addFolder({title: {final: 'Final candidate', drop: 'Droplet family', pipe: 'Pipe family'}[fm], expanded: fm === 'final'});
+  const t = f.addTab({pages: idx.map(i => ({title: VARIANTS[i].name.split(' ')[0]}))});
+  idx.forEach((i, n) => pages[i] = t.pages[n]);
+});
+// clicking a card opens its tab and collapses the other family
+function focusVariant(i) {
+  const fm = fam(VARIANTS[i]);
+  for (const k in folders) folders[k].expanded = k === fm;
+  pages[i].selected = true;
+  cards.forEach((c, n) => c.classList.toggle('active', n === i));
+}
+VARIANTS.forEach((P, i) => {
+  const pg = pages[i], nav = navs[i];
+  const bind = (k, o) => pg.addBinding(P, k, o).on('change', () => { nav.build(); save(); });
+  bind('dur', {min: 0.2, max: 2, step: 0.01, label: 'duration s'});
+  bind('ease', {options: EASES});
+  if (P.mode === 'drop') {
+    bind('drain', {min: 0.1, max: 0.95, step: 0.01, label: 'drain / fill'});
+    bind('beads', {min: 1, max: 5, step: 1});
+    bind('stagger', {min: 0, max: 0.25, step: 0.005});
+    bind('dropW', {min: 4, max: 60, step: 1, label: 'bead w px'});
+    bind('dropH', {min: 4, max: 40, step: 1, label: 'bead h px'});
+    bind('stretch', {min: 0, max: 2, step: 0.05, label: 'speed stretch'});
+    bind('magnet', {min: 0, max: 40, step: 1, label: 'magnet px'});
+    bind('range', {min: 0, max: 160, step: 1, label: 'magnet range'});
+    bind('jiggle', {min: 0, max: 0.6, step: 0.01});
+    if (P.relay) {
+      bind('perHop', {min: 0, max: 1, step: 0.01, label: 'time per button'});
+      bind('passBulge', {min: 0, max: 0.4, step: 0.01, label: 'pass bulge'});
+    }
+    if (P.container) {
+      bind('pad', {min: 0, max: 20, step: 1, label: 'tray padding'});
+      bind('rim', {min: 0, max: 0.6, step: 0.01, label: 'tray rim light'});
+    }
+    bind('hover', {options: HOVERS, label: 'hover style'});
+    bind('hoverReach', {min: 0, max: 40, step: 1, label: 'hover reach px'});
+    bind('hoverDur', {min: 0.1, max: 1.5, step: 0.01, label: 'hover dur s'});
+    bind('hoverEase', {options: HOVER_EASES, label: 'hover ease'});
+    bind('hoverSpeed', {min: 0.2, max: 4, step: 0.1, label: 'ripple speed'});
+  } else bind('lag', {min: 0, max: 0.8, step: 0.01, label: 'stretch (lag)'});
+  bind('radius', {min: 0, max: 20, step: 1, label: 'corner px'});
+  bind('gap', {min: 2, max: 40, step: 1, label: 'gap px'});
+  bind('pipe', {min: 1, max: 20, step: 0.5, label: 'pipe px'});
+  bind('swell', {min: 0, max: 20, step: 0.5, label: 'swell px'});
+  bind('goo', {min: 0, max: 12, step: 0.5, label: 'goo (neck)'});
+  bind('pipes', {label: 'pipes visible'});
+});
+const fs = pane.addFolder({title: 'Shared', expanded: false});
+fs.addBinding(SHARED, 'height', {min: 28, max: 64, step: 1, label: 'height px'});
+fs.addBinding(SHARED, 'padX', {min: 6, max: 40, step: 1, label: 'padding x'});
+fs.addBinding(SHARED, 'fill', {label: 'block colour'});
+fs.addBinding(SHARED, 'ink', {label: 'indicator'});
+fs.on('change', () => { rebuildAll(); save(); });
+
+pane.addBlade({view: 'separator'});
+const copy = pane.addButton({title: 'Copy settings (JSON)'});
+copy.on('click', async () => {
+  const txt = JSON.stringify({VARIANTS, SHARED}, null, 2);
+  try { await navigator.clipboard.writeText(txt); copy.title = 'Copied ✓'; } catch { console.log(txt); copy.title = 'Logged to console'; }
+  setTimeout(() => copy.title = 'Copy settings (JSON)', 1400);
+});
+pane.addButton({title: 'Reset all'}).on('click', () => {
+  DEFAULTS.VARIANTS.forEach((v, i) => Object.assign(VARIANTS[i], v)); Object.assign(SHARED, DEFAULTS.SHARED);
+  pane.refresh(); rebuildAll(); save();
+});
+</script>
+</body>
+</html>

@@ -12,10 +12,20 @@
 
 :root{
   --bg:#050505;--fg:#ededeb;--soft:#cfcfcb;--dim:#85857f;--faint:#3a3a37;--line:#1f1f1d;--panel:#0b0b0b;
+  --on-fg:#000;--hover:#1b1b1a;--glass:rgba(11,11,11,.72);--card:#080808;--win-line:#242422;
   --sans:"aktiv-grotesk","Helv",Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
   --display:"GreatLakes","aktiv-grotesk",serif;
   --ease:cubic-bezier(.2,.7,0,1);
+}
+/* ── looks: monochrome "technical" duotone — warm near-black + paper off-white ── */
+body[data-look="mono-dark"]{
+  --bg:#1c1a1b;--fg:#e4e4df;--soft:#c4c4be;--dim:#8a8884;--faint:#4a4748;--line:#343132;--panel:#211f20;
+  --on-fg:#1c1a1b;--hover:#2a2728;--glass:rgba(28,26,27,.72);--card:#1f1d1e;--win-line:#3a3738;
+}
+body[data-look="mono-light"]{
+  --bg:#e3e4df;--fg:#1c1a1b;--soft:#3b3839;--dim:#76746f;--faint:#b4b4ae;--line:#c8c8c2;--panel:#ebebe7;
+  --on-fg:#e3e4df;--hover:#d6d6d0;--glass:rgba(227,228,223,.72);--card:#ebebe7;--win-line:#c0c0ba;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg)}
@@ -28,6 +38,25 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px rgba(0,0,0,.55)}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
 #gl.dragging{cursor:grabbing}
+
+/* ── background glow (Paper Shaders mesh gradient, shaped by a mask) ── */
+#site{isolation:isolate}                       /* own stacking context so the glow can sit at the very bottom */
+#glow{position:absolute;z-index:0;inset:var(--g-inset,10px);border-radius:var(--g-radius,22px);overflow:hidden;pointer-events:none;opacity:0;transition:opacity 1.2s ease}
+#glow.on{opacity:var(--g-opacity,1)}
+#glow canvas{display:block}
+/* The shader paints unmasked; a gradient "shade" in the page colour sits on top, clear in the middle and solid at
+   the edges — same look on a solid background. Perf history (integrated GPU, dpr 1.5): a CSS mask on the animating
+   layer ran ≈11 fps; a 2×-oversized CSS gradient moved by transform ≈15 fps (a ~19-megapixel layer per frame).
+   Now the shade is a tiny 2D canvas (~1/5 res) redrawn per frame and upscaled — a soft gradient upscales cleanly. */
+#glow .glow-inner{position:absolute;inset:0}
+#glow .glow-shade{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
+#pattern{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1s ease}
+#pattern.on{opacity:var(--p-opacity,.5)}
+#pattern canvas{display:block}
+#gl{z-index:1}
+#gl.off{display:none}                          /* carousel canvas removed entirely */
+#tweak{position:fixed;left:14px;bottom:14px;z-index:101;width:280px;max-height:calc(100vh - 28px);overflow:auto}
+#tweak.hide{display:none}
 
 /* ── chrome ─────────────────────────────────────────── */
 .ui{position:absolute;left:0;right:0;padding:26px 30px;z-index:2;pointer-events:none}
@@ -49,7 +78,7 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .works a.on{opacity:1!important}
 .soon{color:var(--dim);font-family:var(--mono);font-size:9px;letter-spacing:.06em}
 .cta{display:inline-flex;gap:8px;border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:11.5px;white-space:nowrap;transition:background .2s,color .2s}
-.cta:hover{background:var(--fg);color:#000}
+.cta:hover{background:var(--fg);color:var(--on-fg)}
 
 .meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);line-height:1.55}
 .meta b{color:var(--fg);font-weight:400}
@@ -60,25 +89,30 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .avail i{width:6px;height:6px;border-radius:50%;background:#7bd88f;box-shadow:0 0 10px #7bd88f;animation:pulse 2.4s infinite}
 @keyframes pulse{50%{opacity:.35}}
 .br{display:flex;justify-content:flex-end;align-items:flex-end;gap:18px;text-align:right}
-.stamp{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:3px;overflow:hidden}
-.stamp .sq{background:var(--fg);color:#000;font-family:var(--mono);font-size:8px;padding:4px 5px;display:flex;align-items:flex-end}
-.stamp .tx{font-family:var(--mono);font-size:7.5px;letter-spacing:.08em;line-height:1.3;padding:4px 7px;color:var(--soft);text-transform:uppercase}
-.stamp svg{display:block;margin:4px 5px 4px 0}
 
-.pill{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:rgba(11,11,11,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.pill{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .pill button,.pill a{padding:6px 12px;border-radius:999px;font-size:11.5px;color:var(--soft);transition:background .2s,color .2s;white-space:nowrap}
-.pill button:hover,.pill a:hover{background:#1b1b1a;color:var(--fg)}
-.pill .on{background:var(--fg)!important;color:#000!important}
+.pill button:hover,.pill a:hover{background:var(--hover);color:var(--fg)}
+.pill .on{background:var(--fg)!important;color:var(--on-fg)!important}
+/* sticky nav: droplet indicator (dripnav.js) inside a light-rimmed tray */
+.navshell{will-change:transform;   /* own layer: otherwise the glow animating underneath drags the nav's SVG filter into every repaint */
+  display:inline-block;padding:var(--pad,5px);border:1px solid color-mix(in srgb,var(--fg) calc(var(--rim,.16) * 100%),transparent);border-radius:calc(var(--r,2px) + var(--pad,5px));background:color-mix(in srgb,var(--fg) 2%,transparent)}
+.pipenav{position:relative;display:inline-block;isolation:isolate}
+.pipenav svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.pipenav .row{position:relative;display:flex;gap:var(--gap,12px)}
+.pipenav button{font-size:11.5px;height:var(--h,40px);padding:0 var(--px,18px);border-radius:var(--r,2px);white-space:nowrap;
+  color:#fff;mix-blend-mode:difference;outline-offset:3px}       /* light on the dark blocks, dark under the drop — even mid-flow */
+.pipenav button:focus-visible{outline:1px solid var(--dim)}
 .pill .sep{width:1px;height:14px;background:var(--line);margin:0 4px}
 .pill .txt{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--dim);padding:0 8px}
 
 .caption{position:absolute;left:0;right:0;text-align:center;z-index:2;pointer-events:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);transition:opacity .4s}
 .caption b{color:var(--fg);font-weight:400}
-.cursor{position:absolute;z-index:6;pointer-events:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:var(--fg);color:#000;white-space:nowrap;opacity:0;transform:translate(16px,16px) scale(.7);transform-origin:0 0;transition:opacity .2s,transform .35s var(--ease)}
+.cursor{position:absolute;z-index:6;pointer-events:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:var(--fg);color:var(--on-fg);white-space:nowrap;opacity:0;transform:translate(16px,16px) scale(.7);transform-origin:0 0;transition:opacity .2s,transform .35s var(--ease)}
 .cursor.on{opacity:1;transform:translate(16px,16px) scale(1)}
 
 /* ── windows ───────────────────────────────────────── */
-.win{position:absolute;z-index:10;background:var(--panel);border:1px solid #242422;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 90px -20px rgba(0,0,0,.85);animation:winIn .6s var(--ease) both;transition:left .55s var(--ease),top .55s var(--ease),width .55s var(--ease),height .55s var(--ease)}
+.win{position:absolute;z-index:10;background:var(--panel);border:1px solid var(--win-line);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 90px -20px rgba(0,0,0,.85);animation:winIn .6s var(--ease) both;transition:left .55s var(--ease),top .55s var(--ease),width .55s var(--ease),height .55s var(--ease)}
 .win.dragging{transition:none}
 .win.max{left:10px!important;top:10px!important;width:calc(100% - 20px)!important;height:calc(100% - 20px)!important}
 .win.closing{animation:winOut .28s ease-in both;pointer-events:none}
@@ -90,7 +124,7 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .win-title{color:var(--fg)}
 .win-actions{margin-left:auto;display:flex;gap:2px}
 .win-actions button{width:26px;height:24px;border-radius:6px;color:var(--dim);font-size:12px}
-.win-actions button:hover{background:#1b1b1a;color:var(--fg)}
+.win-actions button:hover{background:var(--hover);color:var(--fg)}
 .win-body{flex:1;position:relative;min-height:0}
 
 /* project window */
@@ -119,7 +153,7 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .stage .center img{animation:inherit}
 
 .split{position:absolute;inset:0;display:grid;grid-template-columns:1.55fr 1fr;gap:12px;padding:12px}
-.frame{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#080808;min-height:0}
+.frame{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);min-height:0}
 .frame .scroll{position:absolute;inset:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#333 transparent}
 .frame .scroll img{width:100%;display:block}
 .frame .ctrl{position:absolute;left:12px;bottom:12px;z-index:2}
@@ -128,7 +162,7 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .dots button{width:7px;height:7px;padding:0;border-radius:50%;background:#3a3a37}
 .dots button.on{background:var(--fg)!important;width:18px;border-radius:4px}
 .info{display:flex;flex-direction:column;gap:12px;min-height:0}
-.card{border:1px solid var(--line);border-radius:8px;padding:20px;background:#080808}
+.card{border:1px solid var(--line);border-radius:8px;padding:20px;background:var(--card)}
 .card.text{flex:1;overflow:auto}
 .card h2,.win h2{font-family:var(--display);font-weight:400;font-size:34px;line-height:1;margin:6px 0 16px;letter-spacing:.01em}
 .card p{color:var(--soft);font-size:13px;line-height:1.55;max-width:52ch}
@@ -162,8 +196,8 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 .process{position:absolute;inset:0;display:flex}
 .step{flex:1;border-right:1px solid var(--line);padding:22px 20px;display:flex;flex-direction:column;cursor:pointer;transition:flex .7s var(--ease),background .3s;min-width:0;overflow:hidden}
 .step:last-child{border-right:0}
-.step:hover{background:#0e0e0e}
-.step.open{flex:2.6;cursor:default;background:#0e0e0e}
+.step:hover{background:var(--hover)}
+.step.open{flex:2.6;cursor:default;background:var(--hover)}
 .step .num{font-family:var(--mono);font-size:10px;color:var(--dim)}
 .step h3{font-family:var(--display);font-weight:400;font-size:30px;margin:8px 0 0;white-space:nowrap}
 .step ul{list-style:none;margin-top:auto;display:grid;gap:12px;opacity:0;transform:translateY(8px);transition:opacity .4s,transform .6s var(--ease);min-width:340px}
@@ -198,16 +232,25 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 #proto .pl{margin-top:6px;letter-spacing:.08em;text-transform:uppercase;color:#777;font-size:9px}
 #proto .seg{display:grid;grid-template-columns:1fr 1fr;gap:3px}
 #proto .seg button,#proto .jumps button{padding:6px 7px;border-radius:5px;background:#e7e7e3;text-align:left;font-size:10px}
-#proto .seg button.on{background:#111;color:#fff}
+#proto .seg button.on,#proto .jumps button.on{background:#111;color:#fff}
 #proto .jumps{display:grid;gap:3px}
 #proto .jumps button:hover,#proto .seg button:hover:not(.on){background:#d9d9d4}
 #proto label{display:flex;gap:6px;align-items:center;cursor:pointer}
 #proto .hint{color:#777;line-height:1.5;margin-top:4px}
+/* frame counter (prototype tooling, F toggles) */
+#fps{position:fixed;right:14px;bottom:14px;z-index:100;font-family:var(--mono);font-size:10px;line-height:1.35;letter-spacing:.04em;
+  padding:6px 9px;border-radius:6px;background:rgba(0,0,0,.72);color:#e8e8e3;pointer-events:none;font-variant-numeric:tabular-nums;white-space:pre}
+#fps.hide{display:none}
+#proto .probe{padding:6px 7px;border-radius:5px;background:#111;color:#fff;text-align:left;font-size:10px;margin:2px 0 4px}
+#proto .probe:disabled{opacity:.5}
+#fps .bad{color:#ff8a6a}#fps .ok{color:#f2d36b}#fps .good{color:#8be09a}
 </style>
 </head>
 <body>
 
 <div id="site">
+  <div id="glow"><div class="glow-inner"></div><canvas class="glow-shade"></canvas></div>
+  <div id="pattern"></div>
   <canvas id="gl"></canvas>
 
   <header class="ui top">
@@ -252,17 +295,18 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
     </div>
     <div class="bc" style="--d:6">
       <div class="meta avail"><i></i>Available for new projects</div>
-      <nav class="pill" id="navPill">
-        <button class="on" data-open="home">Work</button>
-        <button data-open="about">About</button>
-        <button data-open="process">Process</button>
-        <button data-open="contact">Contact</button>
+      <nav class="navshell" id="navPill" aria-label="Sections">
+        <div class="pipenav">
+          <div class="row" role="tablist">
+            <button role="tab" aria-selected="true" data-open="home">Work</button>
+            <button role="tab" aria-selected="false" data-open="about">About</button>
+            <button role="tab" aria-selected="false" data-open="process">Process</button>
+            <button role="tab" aria-selected="false" data-open="contact">Contact</button>
+          </div>
+        </div>
       </nav>
     </div>
-    <div class="br" style="--d:7">
-      <div class="meta"><b id="counter">01 / 03</b><br>Drag or scroll ⟷</div>
-      <div class="stamp"><span class="sq">FB</span><span class="tx">Fabrice<br>Bokovi<br>Studio</span><svg id="barcode" width="54" height="22"></svg></div>
-    </div>
+    <div class="br"></div>   <!-- empty: keeps the pill centred in the 3-column footer -->
   </footer>
 </div>
 
@@ -274,6 +318,8 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
       <button data-m="0" class="on">Glow</button><button data-m="1">Glass</button>
       <button data-m="2">Liquid</button><button data-m="3">Plain</button>
     </div>
+    <span class="pl">Look</span>
+    <div class="jumps" id="lookList"></div>
     <span class="pl">Jump to screen</span>
     <div class="jumps">
       <button data-j="home">A · Home / carousel</button>
@@ -285,11 +331,16 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
       <button data-j="contact">G · Contact</button>
     </div>
     <span class="pl">View</span>
+    <button id="probeBtn" class="probe">Run perf probe (~15s)</button>
+    <label><input type="checkbox" id="glowT" checked> Background glow</label>
+    <label><input type="checkbox" id="cardsT"> Show carousel</label>
     <label><input type="checkbox" id="frameT"> Device frame (like ref)</label>
     <label><input type="checkbox" id="driftT" checked> Auto-drift</label>
-    <p class="hint">Drag / wheel the carousel. Hover a card or a title up top. ← → to navigate, Esc closes the top window, P hides this panel.</p>
+    <p class="hint">Drag / wheel the carousel. Hover a card or a title up top. ← → to navigate, Esc closes the top window, P hides this panel, G hides the glow controls, F hides the frame counter.</p>
   </div>
 </aside>
+<div id="tweak"></div>
+<div id="fps" aria-hidden="true">-- fps</div>
 
 <script>
 /* ── content (pulled from Sanity: hvkunqtv/production) ─────────────────── */
@@ -330,7 +381,7 @@ const site = $('#site'), canvas = $('#gl'), caption = $('#caption'), cursorEl = 
 
 /* ── state ─────────────────────────────────────────── */
 const S = {
-  mode: 0, drift: true,
+  mode: 0, drift: true, cards: false,   // cards off while the background is being worked on
   scroll: 0, target: 0, vel: 0,
   W: 0, H: 0, dpr: 1,
   cardW: 0, cardH: 0, cardY: 0, step: 0, off: 0,
@@ -339,7 +390,7 @@ const S = {
 };
 
 /* ── WebGL ─────────────────────────────────────────── */
-const gl = canvas.getContext('webgl2', {antialias: true, alpha: false, premultipliedAlpha: true});
+const gl = canvas.getContext('webgl2', {antialias: true, alpha: true, premultipliedAlpha: true});
 
 const VS = `#version 300 es
 in vec2 aPos;
@@ -516,6 +567,7 @@ function visibleKs() {
   return ks;
 }
 function hitK(mx, my) {
+  if (!S.cards) return null;
   if (my < S.cardY || my > S.cardY + S.cardH) return null;
   for (const k of visibleKs()) { const x = cardX(k); if (mx >= x && mx <= x + S.cardW) return k; }
   return null;
@@ -524,7 +576,10 @@ const nearestK = () => Math.round(S.scroll / S.step);
 
 /* ── render loop ───────────────────────────────────── */
 let last = performance.now(), lastCenter = -1;
+let looping = false;
 function frame(now) {
+  if (!S.cards) { looping = false; return; }     // carousel hidden: stop the loop entirely (setCards restarts it)
+  looping = true;
   const dt = Math.min(50, now - last) / 16.667; last = now;
   const open = wins.size > 0;
   if (S.drift && !S.dragging && S.hoverK === null && S.listK === null) S.target += (open ? 0.12 : 0.4) * dt;
@@ -535,7 +590,7 @@ function frame(now) {
   S.dim += ((open ? 0.3 : 1) - S.dim) * 0.08 * dt;
 
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(0.0196, 0.0196, 0.0196, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
   const d = S.dpr, t = now / 1000;
@@ -549,7 +604,7 @@ function frame(now) {
   gl.uniform2f(U.uSize, S.cardW * d, S.cardH * d);
   gl.uniform1i(U.uTex, 0); gl.activeTexture(gl.TEXTURE0);
 
-  for (const k of visibleKs()) {
+  if (S.cards) for (const k of visibleKs()) {
     const p = mod(k, N), tx = TEX[p];
     const want = (k === S.hoverK || k === S.listK) && !open ? 1 : 0;
     const f = (S.focus.get(k) ?? 0) + (want - (S.focus.get(k) ?? 0)) * 0.1 * dt;
@@ -569,9 +624,8 @@ function frame(now) {
     lastCenter = cp;
     const w = WORKS[cp];
     caption.innerHTML = `<b>${w.name}</b> &nbsp;—&nbsp; ${w.summary} &nbsp;·&nbsp; ${w.cats.join(' / ')}`;
-    $('#counter').textContent = `${pad(cp + 1)} / ${pad(N)}`;
   }
-  caption.style.opacity = open ? 0 : 1;
+  caption.style.opacity = open || !S.cards ? 0 : 1;
   requestAnimationFrame(frame);
 }
 
@@ -675,8 +729,9 @@ function closeWin(win) {
 const topWin = () => [...wins.values()].sort((a, b) => b.el.style.zIndex - a.el.style.zIndex)[0];
 const closeAll = () => [...wins.values()].forEach(closeWin);
 function syncNav() {
-  const t = topWin(), id = t ? t.id : 'home';
-  $('#navPill').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.open === id));
+  const t = topWin(), id = t ? (t.id === 'project' ? 'home' : t.id) : 'home';   // a project window belongs to Work
+  const i = [...$('#navPill').querySelectorAll('button')].findIndex(b => b.dataset.open === id);
+  if (i >= 0) window.dripNav?.go(i);           // windows with no nav entry (e.g. photography) leave the drop where it is
 }
 
 /* project window: overview / details / fullscreen */
@@ -787,6 +842,8 @@ addEventListener('keydown', e => {
   const t = topWin();
   if (e.key === 'Escape' && t) closeWin(t);
   if (e.key.toLowerCase() === 'p') $('#proto').classList.toggle('min');
+  if (e.key.toLowerCase() === 'g') $('#tweak').classList.toggle('hide');
+  if (e.key.toLowerCase() === 'f') $('#fps').classList.toggle('hide');
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     const dir = e.key === 'ArrowRight' ? 1 : -1;
     if (t && t.id === 'project') {
@@ -797,10 +854,27 @@ addEventListener('keydown', e => {
   }
 });
 
+/* ── frame counter: fps averaged over ½s, plus the worst frame in that window (jank shows up there first) ── */
+(() => {
+  const el = $('#fps');
+  let frames = 0, worst = 0, prev = performance.now(), windowStart = prev;
+  const cls = f => f >= 55 ? 'good' : f >= 30 ? 'ok' : 'bad';
+  (function tick(now) {
+    const dt = now - prev; prev = now; frames++; worst = Math.max(worst, dt);
+    if (now - windowStart >= 500) {
+      if (!el.classList.contains('hide') && !el.dataset.probe) {   // the perf probe borrows this box for its table
+        const fps = frames * 1000 / (now - windowStart), low = 1000 / worst;
+        el.innerHTML = `<span class="${cls(fps)}">${fps.toFixed(0).padStart(3)} fps</span>\n${(1000 / fps).toFixed(1).padStart(5)} ms  ·  low <span class="${cls(low)}">${low.toFixed(0)}</span>`;
+      }
+      frames = 0; worst = 0; windowStart = now;
+    }
+    requestAnimationFrame(tick);
+  })(prev);
+})();
+
 /* ── small chrome bits ─────────────────────────────── */
 const fmt = new Intl.DateTimeFormat('en-US', {timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true});
 const tick = () => $('#clock').textContent = fmt.format(new Date()); tick(); setInterval(tick, 1000);
-$('#barcode').innerHTML = [...'FABRICEBOKOVI2026'].map((c, i) => { const w = 1 + (c.charCodeAt(0) % 3); return `<rect x="${i * 3.1}" y="0" width="${w * .8}" height="22" fill="#cfcfcb"/>`; }).join('');
 
 /* ── prototype panel ───────────────────────────────── */
 function setMode(m) {
@@ -811,12 +885,19 @@ $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('butto
 $('#protoMin').onclick = () => $('#proto').classList.toggle('min');
 $('#frameT').onchange = e => document.body.classList.toggle('framed', e.target.checked);
 $('#driftT').onchange = e => S.drift = e.target.checked;
+function setCards(on) {
+  S.cards = on; canvas.classList.toggle('off', !on);
+  if (!on) setHover(null);
+  else if (!looping) { last = performance.now(); looping = true; requestAnimationFrame(frame); }
+}
+$('#cardsT').onchange = e => setCards(e.target.checked);
+setCards(S.cards);
 function jump(j) {
   if (j === 'home') return closeAll();
   if (['stage', 'split', 'full'].includes(j)) { closeAll(); return setTimeout(() => openProject(0, j), 60); }
   closeAll(); setTimeout(OPEN[j], 60);
 }
-document.querySelector('.jumps').addEventListener('click', e => { const b = e.target.closest('button'); if (b) jump(b.dataset.j); });
+document.querySelector('#proto .jumps:not(#lookList)').addEventListener('click', e => { const b = e.target.closest('button[data-j]'); if (b) jump(b.dataset.j); });
 
 /* deep links for screenshots: #mode=glass&screen=split */
 const q = new URLSearchParams(location.hash.slice(1));
@@ -827,6 +908,289 @@ if (q.has('frame')) { document.body.classList.add('framed'); $('#frameT').checke
 S.scroll = -S.W * 1.1;                 // cards glide in from the right on load
 requestAnimationFrame(frame);
 if (q.get('screen')) setTimeout(() => jump(q.get('screen')), 900);
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+/* sticky nav: the approved "Drip · pass-through" droplet indicator (tuned in nav.html) */
+import {DripNav, DRIP_SETTINGS} from './dripnav.js';
+window.dripNav = new DripNav(document.querySelector('#navPill .pipenav'), DRIP_SETTINGS);
+syncNav();   // in case a deep link already opened a window before the nav existed
+</script>
+
+<script type="module">
+/* ── background glow ───────────────────────────────────────────────────
+   Paper Shaders' mesh gradient supplies the flowing colour; a radial mask
+   anchored above the top edge shapes it into a glow spilling downward, and
+   the mask's size drifts slowly so the dark edges keep moving.            */
+import {ShaderMount, meshGradientFragmentShader, getShaderColorFromString, ShaderFitOptions,
+  dotGridFragmentShader, wavesFragmentShader, swirlFragmentShader, neuroNoiseFragmentShader, spiralFragmentShader}
+  from 'https://cdn.jsdelivr.net/npm/@paper-design/shaders@0.0.81/dist/index.js';
+import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
+
+/* glow palettes — 'custom' uses the five editable colours below (the original ember) */
+const PALETTES = {
+  white:    ['#f1f1ec', '#cfcfca', '#ffffff', '#8d8b86', '#1c1a1b'],
+  graphite: ['#9a9893', '#6f6d69', '#bdbcb6', '#4a4748', '#1c1a1b'],
+  ink:      ['#1c1a1b', '#3a3738', '#0f0e0e', '#77756f', '#e3e4df'],
+  ash:      ['#9d9b96', '#bdbcb6', '#7d7b77', '#d2d2cc', '#e3e4df'],   // soft grey spill that keeps dark text readable on paper
+};
+
+/* one-click looks: the monochrome "technical" duotone, with and without the glow */
+const LOOKS = [
+  ['Ember (current)',          {look: 'ember',      palette: 'custom',   enabled: true,  opacity: 1,   pattern: 'none'}],
+  ['Mono dark · ember glow',   {look: 'mono-dark',  palette: 'custom',   enabled: true,  opacity: 1,   pattern: 'none'}],
+  ['Mono dark · white glow',   {look: 'mono-dark',  palette: 'white',    enabled: true,  opacity: 0.85, pattern: 'none'}],
+  ['Paper · ash spill',        {look: 'mono-light', palette: 'ash',      enabled: true,  opacity: 0.9, pattern: 'none'}],
+];
+
+const DEFAULTS = {
+  enabled: true,
+  // look
+  look: 'mono-dark', palette: 'custom',
+  pattern: 'none', pOpacity: 0.35, pScale: 1, pSpeed: 0.4,
+  // spill shape
+  width: 106, reach: 200, top: 0, core: 25, falloff: 3.75, opacity: 1,
+  // edge motion
+  breathe: 0.07, sway: 3.5, edgeSpeed: 1.37,
+  // frame
+  inset: 9, radius: 23,
+  // shader
+  c1: '#ff7a1a', c2: '#f2541b', c3: '#ff9d5c', c4: '#a3240e', c5: '#140604',
+  speed: 0.35, distortion: 0.8, swirl: 0.3, grainMixer: 0, grainOverlay: 0.06,
+  scale: 1, rotation: 0, offsetX: 0, offsetY: -0.15,
+  // performance: render scale of the glow shader (it's a soft blur — 0.5 is visually identical at a quarter of the pixels)
+  res: 0.5,
+};
+const KEY = 'proto-glow-v1';
+let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const P = {...DEFAULTS, ...saved};
+
+const el = document.getElementById('glow'), inner = el.querySelector('.glow-inner'), shade = el.querySelector('.glow-shade');
+const RM = matchMedia('(prefers-reduced-motion: reduce)');   // reduced motion: hold the glow still
+const colors = () => (PALETTES[P.palette] || [P.c1, P.c2, P.c3, P.c4, P.c5]).map(getShaderColorFromString);
+const uniforms = () => ({
+  u_colors: colors(), u_colorsCount: 5,
+  u_distortion: P.distortion, u_swirl: P.swirl, u_grainMixer: P.grainMixer, u_grainOverlay: P.grainOverlay,
+  u_fit: ShaderFitOptions.cover, u_scale: P.scale, u_rotation: P.rotation,
+  u_originX: 0.5, u_originY: 0.5, u_offsetX: P.offsetX, u_offsetY: P.offsetY, u_worldWidth: 0, u_worldHeight: 0,
+});
+/* Performance: the glow is a soft gradient, so it renders below native resolution. Paper's pixel-count cap is
+   the only lever that goes under 1× (its min pixel ratio is a floor), so derive the cap from the layer's size. */
+const pixelCap = () => {
+  const dpr = Math.max(1, devicePixelRatio || 1), r = P.res;
+  return Math.max(64 * 64, Math.round(inner.offsetWidth * inner.offsetHeight * dpr * dpr * r * r));
+};
+const speedNow = () => (P.enabled && !RM.matches ? P.speed : 0);
+const mount = new ShaderMount(inner, meshGradientFragmentShader, uniforms(), undefined, speedNow(), 0, 1, pixelCap());
+new ResizeObserver(() => mount.setMaxPixelCount(pixelCap())).observe(inner);
+window.glow = {P, DEFAULTS, mount};   // for poking at it from the console
+
+// on/off: fade out, then stop the shader and the edge motion so a disabled glow costs nothing
+const glowT = document.getElementById('glowT');
+let offTimer;
+function setEnabled(on) {
+  P.enabled = on; glowT.checked = on; clearTimeout(offTimer);
+  if (on) { mount.setSpeed(speedNow()); requestAnimationFrame(() => el.classList.add('on')); startEdges(); }
+  else { el.classList.remove('on'); offTimer = setTimeout(() => mount.setSpeed(0), 1200); }
+}
+
+/* shade: the inverse of the old mask — an ellipse centred above the top edge, clear inside and easing to the page
+   colour, so the glow appears to spill from the top with no visible rim. Drawn into a small canvas; breathe/sway
+   are applied while drawing (no CSS transforms). */
+const smooth = t => t * t * (3 - 2 * t);
+const SHADE_RES = 0.2;                                   // fraction of CSS size — plenty for a soft gradient
+const sctx = shade.getContext('2d');
+let shadeStops = [], shadeRGB = '5,5,5';
+function sizeShade() {
+  const w = Math.max(32, Math.round(el.clientWidth * SHADE_RES)), h = Math.max(32, Math.round(el.clientHeight * SHADE_RES));
+  if (shade.width !== w || shade.height !== h) { shade.width = w; shade.height = h; }
+}
+new ResizeObserver(() => { sizeShade(); drawShade(edgeT); }).observe(el);
+function applyMask() {
+  // the page colour as r,g,b (canvas normalises any CSS colour string to #rrggbb)
+  sctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim() || '#050505';
+  const hex = sctx.fillStyle; shadeRGB = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+  shadeStops = [];
+  for (let i = 0; i <= 12; i++) {
+    const u = i / 12, a = Math.pow(1 - smooth(u), P.falloff);           // a = how much glow shows through
+    shadeStops.push([(P.core + (100 - P.core) * u) / 100, 1 - a]);
+  }
+  sizeShade(); drawShade(edgeT);
+}
+function drawShade(t) {
+  const W = shade.width, H = shade.height, b = P.breathe;
+  const moving = P.enabled && !RM.matches;
+  const sx = moving ? 1 + b * Math.sin(t * 0.41) : 1, sy = moving ? 1 + b * 0.8 * Math.sin(t * 0.29 + 1.3) : 1;
+  const cx = W * (50 + (moving ? P.sway * Math.sin(t * 0.23) : 0)) / 100, cy = H * P.top / 100;
+  const rx = Math.max(1, W * P.width / 100 * sx), ry = Math.max(1, H * P.reach / 100 * sy);
+  sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.clearRect(0, 0, W, H);
+  sctx.translate(cx, cy); sctx.scale(1, ry / rx);                    // circle → ellipse
+  const g = sctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  for (const [pos, alpha] of shadeStops) g.addColorStop(Math.min(1, pos), `rgba(${shadeRGB},${alpha.toFixed(3)})`);
+  sctx.fillStyle = g;                                                // beyond the radius the last stop (solid page colour) extends
+  sctx.fillRect(-cx - 2, -cy * rx / ry - 2, W + 4, H * rx / ry + 4);
+}
+function applyFrame() {
+  el.style.setProperty('--g-inset', P.inset + 'px');
+  el.style.setProperty('--g-radius', P.radius + 'px');
+  el.style.setProperty('--g-opacity', P.opacity);
+}
+
+// edge motion: breathe + sway as a compositor-only transform; the loop only runs while there's something to move
+let edgeT = 0, lastNow = 0, edgesRunning = false;
+function edges(now) {
+  if (!P.enabled || RM.matches || (!P.breathe && !P.sway) || !P.edgeSpeed) { edgesRunning = false; drawShade(edgeT); return; }
+  const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0; lastNow = now;
+  edgeT += dt * P.edgeSpeed * 2.5;
+  drawShade(edgeT);
+  requestAnimationFrame(edges);
+}
+function startEdges() { if (!edgesRunning) { edgesRunning = true; lastNow = 0; requestAnimationFrame(edges); } }
+
+applyMask(); applyFrame(); setEnabled(P.enabled);
+RM.addEventListener?.('change', () => { mount.setSpeed(speedNow()); startEdges(); });
+
+/* ── look: page theme + optional generative pattern layer (Paper shaders, drawn in the theme's ink) ── */
+const pEl = document.getElementById('pattern');
+const CLEAR = [0, 0, 0, 0];
+const SIZING = (fit = ShaderFitOptions.none) => ({u_fit: fit, u_scale: P.pScale, u_rotation: 0, u_originX: 0.5, u_originY: 0.5, u_offsetX: 0, u_offsetY: 0, u_worldWidth: 0, u_worldHeight: 0});
+const ink = () => getShaderColorFromString(getComputedStyle(document.body).getPropertyValue('--fg').trim() || '#ededeb');
+const PATTERNS = {
+  dots:   () => [dotGridFragmentShader, {...SIZING(), u_colorBack: CLEAR, u_colorFill: ink(), u_colorStroke: CLEAR, u_dotSize: 1.5, u_gapX: 28, u_gapY: 28, u_strokeWidth: 0, u_sizeRange: 0, u_opacityRange: 0, u_shape: 0}],
+  waves:  () => [wavesFragmentShader, {...SIZING(), u_colorFront: ink(), u_colorBack: CLEAR, u_shape: 1, u_frequency: 0.35, u_amplitude: 0.35, u_spacing: 0.6, u_proportion: 0.02, u_softness: 0}],
+  swirl:  () => [swirlFragmentShader, {...SIZING(ShaderFitOptions.cover), u_colorBack: CLEAR, u_colors: [ink(), CLEAR], u_colorsCount: 2, u_bandCount: 14, u_twist: 0.45, u_center: 0.15, u_proportion: 0.5, u_softness: 0, u_noiseFrequency: 0.4, u_noise: 0.1}],
+  neuro:  () => { const c = ink(); return [neuroNoiseFragmentShader, {...SIZING(), u_colorFront: c, u_colorMid: [c[0], c[1], c[2], 0.35], u_colorBack: CLEAR, u_brightness: 0.05, u_contrast: 0.3}]; },
+  spiral: () => [spiralFragmentShader, {...SIZING(), u_colorBack: CLEAR, u_colorFront: ink(), u_density: 1, u_distortion: 0, u_strokeWidth: 0.06, u_strokeTaper: 0, u_strokeCap: 0, u_noise: 0, u_noiseFrequency: 0, u_softness: 0}],
+};
+let pMount = null, pKind = null;
+function applyLook() {
+  if (P.look === 'ember') delete document.body.dataset.look; else document.body.dataset.look = P.look;
+  pEl.style.setProperty('--p-opacity', P.pOpacity);
+  const def = PATTERNS[P.pattern];
+  if (!def) {                  // no pattern: fade out, then release its WebGL context entirely
+    pEl.classList.remove('on');
+    if (pMount) { const m = pMount; pMount = null; pKind = null; m.setSpeed(0); setTimeout(() => { if (!pMount) { m.dispose(); pEl.innerHTML = ''; } }, 1000); }
+    return;
+  }
+  const [frag, u] = def();
+  if (pKind !== P.pattern || !pMount) {            // different shader: rebuild the mount
+    pMount?.dispose(); pEl.innerHTML = '';
+    pMount = new ShaderMount(pEl, frag, u, undefined, P.pSpeed, 0, 1); pKind = P.pattern;   // native res, not Paper's 2× floor
+  } else { pMount.setUniforms(u); pMount.setSpeed(P.pSpeed); }
+  requestAnimationFrame(() => pEl.classList.add('on'));
+}
+applyLook();
+
+// look presets in the prototype panel
+const lookList = document.getElementById('lookList');
+lookList.innerHTML = LOOKS.map(([name], i) => `<button data-l="${i}">${String.fromCharCode(97 + i)} · ${name}</button>`).join('');
+const markLook = () => lookList.querySelectorAll('button').forEach((b, i) => {
+  // sliders snap to their step (1 can come back as 0.9999…), so compare numbers loosely
+  const same = (a, c) => typeof c === 'number' ? Math.abs(a - c) < 1e-3 : a === c;
+  const L = LOOKS[i][1]; b.classList.toggle('on', Object.keys(L).every(k => same(P[k], L[k])));
+});
+lookList.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  Object.assign(P, LOOKS[+b.dataset.l][1]); pane.refresh(); apply();
+});
+
+/* controls */
+const pane = new Pane({container: document.getElementById('tweak'), title: 'Background glow  (G)'});
+pane.addBinding(P, 'enabled', {label: 'glow on'});
+const f0 = pane.addFolder({title: 'Look'});
+f0.addBinding(P, 'look', {options: {'Ember (original)': 'ember', 'Mono dark': 'mono-dark', 'Mono light (paper)': 'mono-light'}, label: 'theme'});
+f0.addBinding(P, 'palette', {options: {'Custom (ember)': 'custom', 'White smoke': 'white', 'Graphite': 'graphite', 'Ash (for paper)': 'ash', 'Ink': 'ink'}, label: 'glow colour'});
+f0.addBinding(P, 'pattern', {options: {None: 'none', 'Dot grid': 'dots', 'Waves': 'waves', 'Swirl': 'swirl', 'Network (neuro)': 'neuro', 'Spiral': 'spiral'}});
+f0.addBinding(P, 'pOpacity', {min: 0, max: 1, step: 0.01, label: 'pattern opacity'});
+f0.addBinding(P, 'pScale', {min: 0.1, max: 4, step: 0.01, label: 'pattern scale'});
+f0.addBinding(P, 'pSpeed', {min: 0, max: 2, step: 0.01, label: 'pattern speed'});
+pane.addBinding(P, 'res', {min: 0.2, max: 1, step: 0.05, label: 'glow resolution'});
+const f1 = pane.addFolder({title: 'Spill shape'});
+f1.addBinding(P, 'width', {min: 20, max: 200, step: 1, label: 'width %'});
+f1.addBinding(P, 'reach', {min: 20, max: 200, step: 1, label: 'reach %'});
+f1.addBinding(P, 'top', {min: -100, max: 50, step: 1, label: 'source y %'});
+f1.addBinding(P, 'core', {min: 0, max: 80, step: 1, label: 'solid core %'});
+f1.addBinding(P, 'falloff', {min: 0.3, max: 5, step: 0.05});
+f1.addBinding(P, 'opacity', {min: 0, max: 1, step: 0.01});
+const f2 = pane.addFolder({title: 'Edge motion'});
+f2.addBinding(P, 'breathe', {min: 0, max: 0.3, step: 0.005});
+f2.addBinding(P, 'sway', {min: 0, max: 20, step: 0.5, label: 'sway %'});
+f2.addBinding(P, 'edgeSpeed', {min: 0, max: 2, step: 0.01, label: 'edge speed'});
+const f3 = pane.addFolder({title: 'Frame'});
+f3.addBinding(P, 'inset', {min: 0, max: 60, step: 1, label: 'inset px'});
+f3.addBinding(P, 'radius', {min: 0, max: 80, step: 1, label: 'radius px'});
+const f4 = pane.addFolder({title: 'Colour (Paper mesh gradient)', expanded: false});
+['c1', 'c2', 'c3', 'c4', 'c5'].forEach((k, i) => f4.addBinding(P, k, {label: `colour ${i + 1}`}));
+f4.addBinding(P, 'speed', {min: 0, max: 2, step: 0.01});
+f4.addBinding(P, 'distortion', {min: 0, max: 1, step: 0.01});
+f4.addBinding(P, 'swirl', {min: 0, max: 1, step: 0.01});
+f4.addBinding(P, 'grainMixer', {min: 0, max: 1, step: 0.01, label: 'grain edges'});
+f4.addBinding(P, 'grainOverlay', {min: 0, max: 1, step: 0.01, label: 'grain overlay'});
+f4.addBinding(P, 'scale', {min: 0.1, max: 4, step: 0.01});
+f4.addBinding(P, 'rotation', {min: 0, max: 360, step: 1});
+f4.addBinding(P, 'offsetX', {min: -1, max: 1, step: 0.01});
+f4.addBinding(P, 'offsetY', {min: -1, max: 1, step: 0.01});
+pane.addBlade({view: 'separator'});
+const copyBtn = pane.addButton({title: 'Copy settings (JSON)'});
+copyBtn.on('click', async () => {
+  try { await navigator.clipboard.writeText(JSON.stringify(P, null, 2)); copyBtn.title = 'Copied ✓'; }
+  catch { console.log(JSON.stringify(P, null, 2)); copyBtn.title = 'Logged to console'; }
+  setTimeout(() => copyBtn.title = 'Copy settings (JSON)', 1400);
+});
+pane.addButton({title: 'Reset to defaults'}).on('click', () => { Object.assign(P, DEFAULTS); pane.refresh(); apply(); });
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch {} };
+function apply() {
+  applyLook();                 // first: the theme changes --fg, which the pattern ink reads
+  mount.setUniforms(uniforms());
+  mount.setMaxPixelCount(pixelCap());
+  setEnabled(P.enabled);
+  applyMask();
+  applyFrame();
+  markLook();
+  save();
+}
+markLook();
+pane.on('change', apply);
+
+/* ── perf probe: switch layers off one at a time and measure fps, so we know what's actually expensive here ── */
+const fpsOver = ms => new Promise(res => {
+  let n = 0, t0 = 0;
+  const f = now => { if (!t0) t0 = now; n++; now - t0 < ms ? requestAnimationFrame(f) : res(n * 1000 / (now - t0)); };
+  requestAnimationFrame(f);
+});
+const settle = ms => new Promise(r => setTimeout(r, ms));
+const navSvg = () => document.querySelector('#navPill svg');
+const STEPS = [
+  ['everything on (as is)',  () => {}],
+  ['glow shader frozen',     () => mount.setSpeed(0)],
+  ['+ edge motion off',      () => { P.enabled = false; }],   // stops the edges loop only (the shade holds still)
+  ['+ glow shade off',       () => { shade.style.display = 'none'; }],
+  ['+ glow layer hidden',    () => { el.style.display = 'none'; }],
+  ['+ nav svg hidden',       () => { const s = navSvg(); if (s) s.style.display = 'none'; }],
+  ['+ text/ui hidden',       () => document.querySelectorAll('#site > .ui').forEach(u => u.style.visibility = 'hidden')],
+];
+document.getElementById('probeBtn').onclick = async e => {
+  const btn = e.currentTarget, out = document.getElementById('fps'), snap = {...P};
+  btn.disabled = true; out.classList.remove('hide');
+  const rows = [`dpr ${devicePixelRatio}  ${innerWidth}×${innerHeight}`, `glow canvas ${inner.querySelector('canvas')?.width}×${inner.querySelector('canvas')?.height}`];
+  out.dataset.probe = '1';
+  for (const [label, step] of STEPS) {
+    step(); await settle(400);
+    const fps = await fpsOver(1600);
+    rows.push(`${fps.toFixed(0).padStart(3)} fps  ${label}`);
+    out.textContent = rows.join('\n') + '\n…';
+  }
+  // restore
+  el.style.display = ''; shade.style.display = ''; const s = navSvg(); if (s) s.style.display = '';
+  document.querySelectorAll('#site > .ui').forEach(u => u.style.visibility = '');
+  Object.assign(P, snap); applyMask(); setEnabled(P.enabled);
+  out.textContent = rows.join('\n') + '\n(done — copy these numbers)';
+  btn.disabled = false;
+  setTimeout(() => delete out.dataset.probe, 20000);   // keep the table up for a while
+};
+glowT.onchange = () => { setEnabled(glowT.checked); pane.refresh(); save(); };
 </script>
 </body>
 </html>

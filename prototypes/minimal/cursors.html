@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Custom Cursors — Prototype</title>
+<link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css">
+<style>
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bd79c75cceb3db1a6_Helvetica.ttf);font-weight:400}
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bbcffd89655079493_Helvetica-Bold.ttf);font-weight:700}
+@font-face{font-family:"GreatLakes";src:url(../../site/public/fonts/68f155d8c639d822900aff54_GreatLakesNF.ttf)}
+:root{
+  --bg:#1c1a1b;--fg:#e4e4df;--soft:#c4c4be;--dim:#8a8884;--faint:#4a4748;--line:#343132;--panel:#211f20;--hover:#2a2728;
+  --sans:"aktiv-grotesk","Helv",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  --display:"GreatLakes","aktiv-grotesk",serif;
+  --ease:cubic-bezier(.2,.7,0,1);
+  /* the "monochromatic filter of the background" — shared by the arrow and the lens */
+  --mono-f:grayscale(1) contrast(1.25) brightness(1.12);
+}
+body.light{--bg:#e3e4df;--fg:#1c1a1b;--soft:#3b3839;--dim:#76746f;--faint:#b4b4ae;--line:#c8c8c2;--panel:#ebebe7;--hover:#d6d6d0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--sans);color:var(--fg);font-size:12.5px;line-height:1.4;-webkit-font-smoothing:antialiased;transition:background .4s,color .4s}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0}
+img{display:block}
+.label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+@media (pointer:fine){html,html *{cursor:none!important}}
+
+/* ── test surface: photos, saturated colour, live gradient, type, links ── */
+#board{position:fixed;inset:0;padding:24px 28px 86px;display:grid;gap:14px;
+  grid-template-columns:1.15fr 1fr .9fr 1fr;grid-template-rows:auto minmax(0,1.3fr) minmax(0,1fr);
+  grid-template-areas:"head head head head" "title pa pb glow" "text works works sw"}
+.head{grid-area:head;display:flex;justify-content:space-between;gap:40px;align-items:flex-start}
+.head .who{display:block;font-weight:700;margin-top:6px}
+#now{max-width:380px;text-align:right}
+#now b{display:block;font-size:13px;margin:5px 0 4px}
+#now p{color:var(--dim)}
+.title{grid-area:title;align-self:end;font-family:var(--display);font-weight:400;font-size:clamp(46px,6.6vw,112px);line-height:.9;letter-spacing:-.01em}
+.ph{overflow:hidden;border-radius:8px;background:var(--panel)}
+.ph img{width:100%;height:100%;object-fit:cover}
+.pa{grid-area:pa}.pb{grid-area:pb}
+.glow{grid-area:glow;position:relative;overflow:hidden;border-radius:8px;background:#111}
+.glow::before{content:"";position:absolute;inset:-45%;background:conic-gradient(#ff5a1f,#ff2d87,#6a3cff,#1fa2ff,#22d39a,#ffd23f,#ff5a1f);filter:blur(28px);animation:spin 16s linear infinite}
+.glow span{position:absolute;left:12px;bottom:10px;color:#fff;mix-blend-mode:difference}
+@keyframes spin{to{transform:rotate(1turn)}}
+.text{grid-area:text;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:0}
+.text p{color:var(--soft);max-width:330px;font-size:14px;line-height:1.45}
+.text nav{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.text nav a{width:max-content;border-bottom:1px solid var(--faint)}
+.btn{align-self:flex-start;padding:10px 16px;border-radius:999px;background:var(--fg);color:var(--bg);font-weight:700}
+.works{grid-area:works;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;min-height:0}
+.works figure{display:flex;flex-direction:column;gap:6px;min-height:0}
+.works .ph{flex:1;min-height:0}
+.works .ph img{object-position:top}
+.works figcaption{font-size:11.5px;color:var(--dim)}
+.sw{grid-area:sw;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;justify-content:flex-end;color:#fff;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}
+.chip i{font-style:normal;opacity:.7}
+
+/* ── dock ── */
+#dock{position:fixed;z-index:50;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:3px;padding:5px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(10px)}
+#dock button{padding:7px 10px;border-radius:8px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--dim);white-space:nowrap;transition:background .2s,color .2s}
+#dock button span{opacity:.5;margin-right:6px}
+#dock button.on{background:var(--fg);color:var(--bg)}
+#dock .sep{width:1px;background:var(--line);margin:4px 3px}
+
+@media (max-width:900px){
+  html,body{overflow:auto}
+  #board{position:static;grid-template-columns:1fr 1fr;grid-template-rows:auto;
+    grid-template-areas:"head head" "title title" "pa pb" "glow sw" "works works" "text text"}
+  .ph,.glow{min-height:220px}.works .ph{min-height:160px}
+  #dock{max-width:calc(100vw - 32px);overflow-x:auto;scrollbar-width:none}
+}
+@media (pointer:coarse){#cursor-root{display:none}}
+
+/* ── cursor layer ──
+   #cursor-root is a plain static div on purpose: no z-index, opacity or filter, so it is neither a stacking
+   context nor a backdrop root. Each .cur is fixed and blends / filters straight against the page. */
+.cur{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;will-change:transform;transition:opacity .25s}
+body.away .cur{opacity:0!important}
+
+/* 1 · mono arrow */
+.c-arrow{width:30px;height:42px;transform-origin:3px 3px}
+.c-arrow .lens{position:absolute;inset:0;backdrop-filter:var(--mono-f);-webkit-backdrop-filter:var(--mono-f)}
+.c-arrow svg{position:absolute;inset:0;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+.c-arrow path{fill:none;stroke-linejoin:round}
+.c-arrow .o1{stroke:#000;stroke-width:2.6;opacity:.8}
+.c-arrow .o2{stroke:#fff;stroke-width:1.1}
+
+/* 2 · mono lens */
+.c-ring{backdrop-filter:var(--mono-f);-webkit-backdrop-filter:var(--mono-f);box-shadow:0 0 0 1px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.75);display:grid;place-items:center}
+.c-ring span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.c-dot{width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;mix-blend-mode:difference}
+
+/* 3 · darkroom */
+.c-dev{width:100px;height:100px;border-radius:50%}
+.c-dev svg{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);overflow:visible;transform:rotate(-90deg)}
+.c-dev circle{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.c-dev .trk{stroke:rgba(255,255,255,.18)}
+.c-dev .prog{stroke:#fff;stroke-dasharray:301.6;stroke-linecap:round}
+.c-dev i{position:absolute;inset:0;border-radius:50%;background:#fff;opacity:0}
+.c-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;mix-blend-mode:difference;white-space:nowrap}
+
+/* 4 · bleed */
+.c-bleed{inset:0;width:auto;height:auto;z-index:9990;backdrop-filter:grayscale(1) contrast(1.05);-webkit-backdrop-filter:grayscale(1) contrast(1.05);
+  mask-composite:intersect;-webkit-mask-composite:source-in;mask-repeat:no-repeat;will-change:auto}
+.c-pt{width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:1.5px solid #fff;mix-blend-mode:difference}
+
+/* 5 · viewfinder */
+.c-blur{inset:0;z-index:9990;display:none;will-change:auto}
+.c-vf{--p:0;mix-blend-mode:difference}
+.c-vf b{position:absolute;width:13px;height:13px;border:0 solid #fff}
+.c-vf .tl{left:calc(var(--p)*1px);top:calc(var(--p)*1px);border-left-width:1.5px;border-top-width:1.5px}
+.c-vf .tr{right:calc(var(--p)*1px);top:calc(var(--p)*1px);border-right-width:1.5px;border-top-width:1.5px}
+.c-vf .bl{left:calc(var(--p)*1px);bottom:calc(var(--p)*1px);border-left-width:1.5px;border-bottom-width:1.5px}
+.c-vf .br{right:calc(var(--p)*1px);bottom:calc(var(--p)*1px);border-right-width:1.5px;border-bottom-width:1.5px}
+.c-vf em{position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;transition:opacity .2s;
+  background:linear-gradient(#fff 0 0) center/1.5px 100% no-repeat,linear-gradient(#fff 0 0) center/100% 1.5px no-repeat}
+.c-flash{background:#fff;opacity:0;z-index:9998}
+.c-read{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;mix-blend-mode:difference;white-space:nowrap;transition:opacity .2s}
+
+/* 6 · mercury */
+.c-merc{inset:0;width:auto;height:auto;z-index:9998;background:#000;filter:blur(9px) contrast(26);mix-blend-mode:difference;will-change:auto}
+.c-merc div{position:absolute;left:0;top:0;width:100px;height:100px;border-radius:50%;background:#fff;will-change:transform}
+
+/* 7 · ruler */
+.c-vl,.c-hl{background:#fff;mix-blend-mode:difference;opacity:.6}
+.c-vl{width:1px;height:100vh;
+  -webkit-mask:linear-gradient(#000 calc(var(--y) - 9px),transparent 0 calc(var(--y) + 9px),#000 0);mask:linear-gradient(#000 calc(var(--y) - 9px),transparent 0 calc(var(--y) + 9px),#000 0)}
+.c-hl{height:1px;width:100vw;
+  -webkit-mask:linear-gradient(90deg,#000 calc(var(--x) - 9px),transparent 0 calc(var(--x) + 9px),#000 0);mask:linear-gradient(90deg,#000 calc(var(--x) - 9px),transparent 0 calc(var(--x) + 9px),#000 0)}
+.c-rc{width:3px;height:3px;margin:-1px 0 0 -1px;background:#fff;mix-blend-mode:difference}
+.c-tx,.c-ty{inset:auto;width:auto;height:auto;mix-blend-mode:difference;opacity:.4;will-change:auto}
+.c-tx{left:0;right:0;top:0;height:9px;background:repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 10px),repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 100px) 0 0/100% 18px no-repeat;background-size:100% 4px,100% 9px;background-repeat:no-repeat}
+.c-ty{top:0;bottom:0;left:0;width:9px;background:repeating-linear-gradient(#fff 0 1px,transparent 1px 10px),repeating-linear-gradient(#fff 0 1px,transparent 1px 100px);background-size:4px 100%,9px 100%;background-repeat:no-repeat}
+.c-rl{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;mix-blend-mode:difference;white-space:nowrap}
+.c-rbox{border:1px dashed #fff;mix-blend-mode:difference;transition:opacity .2s}
+.c-rbox span,.c-mq span{position:absolute;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;white-space:nowrap}
+.c-rbox .w{left:50%;top:-16px;transform:translateX(-50%)}
+.c-rbox .h{left:calc(100% + 6px);top:50%;transform:translateY(-50%)}
+.c-rbox .n{left:-1px;top:calc(100% + 5px);text-transform:uppercase;letter-spacing:.08em}
+.c-mq{border:1px solid #fff;background:rgba(255,255,255,.1);mix-blend-mode:difference}
+.c-mq span{right:0;top:calc(100% + 5px)}
+</style>
+</head>
+<body>
+
+<main id="board">
+  <header class="head">
+    <div><span class="label">Prototype · Custom cursors</span><b class="who">Fabrice Bokovi</b></div>
+    <div id="now"><span class="label"></span><b></b><p></p></div>
+  </header>
+
+  <h1 class="title" data-kind="text" data-cursor="Display · GreatLakes">Point<br>&amp; see</h1>
+  <figure class="ph pa" data-kind="img" data-cursor="IMG_6090"><img src="../../site/public/images/6931f9a10b09ccb3836531ed_IMG_6090.webp" alt="" draggable="false"></figure>
+  <figure class="ph pb" data-kind="img" data-cursor="_FBF1839"><img src="../../site/public/images/6931fb3c9258b336ae8809c1__FBF1839.webp" alt="" draggable="false"></figure>
+  <div class="glow" data-kind="color" data-cursor="Live gradient"><span class="label">Live gradient</span></div>
+
+  <section class="text">
+    <p data-kind="text" data-cursor="Body · aktiv-grotesk">A test surface for cursors. Drag across photos, flat colour, moving gradient, type and links: each one reacts to what is underneath it.</p>
+    <nav>
+      <a href="#" data-kind="link" data-cursor="Selected works">Selected works ↗</a>
+      <a href="#" data-kind="link" data-cursor="Photography">Photography ↗</a>
+      <a href="#" data-kind="link" data-cursor="Contact">Contact ↗</a>
+    </nav>
+    <button class="btn" data-kind="link" data-cursor="Get in touch">Get in touch</button>
+  </section>
+
+  <section class="works">
+    <figure><div class="ph" data-kind="img" data-cursor="Barb's Breakfast Bar"><img src="../../migration-assets/barbs-breakfast-bar/thumbnail.png" alt="" draggable="false"></div><figcaption>Barb's Breakfast Bar</figcaption></figure>
+    <figure><div class="ph" data-kind="img" data-cursor="Palermo Rose Garden"><img src="../../migration-assets/palermo-rose-garden/thumbnail.png" alt="" draggable="false"></div><figcaption>Palermo Rose Garden</figcaption></figure>
+    <figure><div class="ph" data-kind="img" data-cursor="The Daily Grind"><img src="../../migration-assets/the-daily-grind/thumbnail.png" alt="" draggable="false"></div><figcaption>The Daily Grind</figcaption></figure>
+  </section>
+
+  <section class="sw">
+    <div class="chip" data-kind="color" data-cursor="Vermilion" style="background:#e8552a">Vermilion<i>#E8552A</i></div>
+    <div class="chip" data-kind="color" data-cursor="Ultramarine" style="background:#2b59ff">Ultramarine<i>#2B59FF</i></div>
+    <div class="chip" data-kind="color" data-cursor="Viridian" style="background:#1fa774">Viridian<i>#1FA774</i></div>
+    <div class="chip" data-kind="color" data-cursor="Chrome yellow" style="background:#f2c230;color:#1c1a1b">Chrome yellow<i>#F2C230</i></div>
+  </section>
+</main>
+
+<div id="dock"></div>
+<div id="cursor-root"></div>
+
+<script>
+/* ───────────────────────── shared pointer state ───────────────────────── */
+const root = document.getElementById('cursor-root');
+const S = {x:-200, y:-200, px:-200, py:-200, vx:0, vy:0, speed:0, down:false,
+           target:null, kind:null, label:'', lastMove:0, still:0, seen:false};
+
+const clamp = (v, a=0, b=1) => Math.min(b, Math.max(a, v));
+const ease = (rate, dt) => 1 - Math.exp(-rate * dt);              // frame-rate independent lerp factor
+function h(tag, cls, html=''){ const e = document.createElement(tag); e.className = cls; e.innerHTML = html; root.append(e); return e; }
+function spring(v, k=400, d=28){
+  return {v, t:v, vel:0, k, d, step(dt){ this.vel += (this.k*(this.t - this.v) - this.d*this.vel) * dt; this.v += this.vel*dt; return this.v; }};
+}
+function setBackdrop(el, f){ el.style.backdropFilter = f; el.style.webkitBackdropFilter = f; }
+
+function setTarget(el){
+  const t = el && el.closest ? el.closest('[data-kind]') : null;
+  S.target = t; S.kind = t ? t.dataset.kind : null; S.label = t ? t.dataset.cursor || '' : '';
+}
+addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch') return;
+  S.x = e.clientX; S.y = e.clientY; S.lastMove = performance.now();
+  if (!S.seen){ S.seen = true; S.px = S.x; S.py = S.y; cur.mount(); }
+  document.body.classList.remove('away');
+  setTarget(e.target);
+}, {passive:true});
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch') return; S.down = true; cur.down && cur.down(); });
+addEventListener('pointerup',   e => { if (e.pointerType === 'touch') return; S.down = false; cur.up && cur.up(); });
+document.addEventListener('mouseout', e => { if (!e.relatedTarget) document.body.classList.add('away'); });
+document.addEventListener('click', e => { if (e.target.closest('#board a')) e.preventDefault(); });
+
+/* ───────────────────────── variants ───────────────────────── */
+const ARROW = [[0,0],[0,23],[5.5,17.6],[9.2,26.4],[12.9,24.8],[9.3,16.4],[16.6,16.4]]
+  .map(([a,b]) => [+(a*1.3+3).toFixed(2), +(b*1.3+3).toFixed(2)]);
+const ARROW_D = 'M' + ARROW.map(p => p.join(' ')).join('L') + 'Z';
+
+const V = [
+/* 1 ─────────────────────────────────────────────────────────── */
+{ name:'Mono arrow',
+  desc:'The system arrow, filled with a greyscale copy of whatever is under it. A thin double outline keeps it readable over flat greys.',
+  mount(){
+    this.el = h('div','cur c-arrow',`<div class="lens"></div><svg width="30" height="42"><path class="o1" d="${ARROW_D}"/><path class="o2" d="${ARROW_D}"/></svg>`);
+    this.el.firstChild.style.clipPath = `path('${ARROW_D}')`;
+    this.sc = spring(1, 700, 30);
+  },
+  frame(dt){
+    this.sc.t = S.down ? .86 : S.kind === 'link' ? 1.18 : 1;
+    this.el.style.transform = `translate3d(${S.x-3}px,${S.y-3}px,0) scale(${this.sc.step(dt)})`;
+  }},
+
+/* 2 ─────────────────────────────────────────────────────────── */
+{ name:'Mono lens',
+  desc:'Same greyscale filter in a circle that trails the pointer. Grows on links, opens into a VIEW lens over images, and collapses to a caret over text.',
+  mount(){
+    this.ring = h('div','cur c-ring','<span></span>'); this.lbl = this.ring.firstChild;
+    this.dot = h('div','cur c-dot');
+    this.x = S.x; this.y = S.y; this.w = spring(40, 420, 30); this.h = spring(40, 420, 30); this.lo = spring(0, 300, 30);
+  },
+  frame(dt){
+    const k = S.kind, size = {link:66, img:120, color:86}[k] || 40, caret = k === 'text';
+    const press = S.down ? .85 : 1;
+    this.w.t = (caret ? 3 : size) * press; this.h.t = (caret ? 30 : size) * press;
+    const w = Math.max(2, this.w.step(dt)), hh = Math.max(2, this.h.step(dt));
+    const f = ease(caret ? 40 : 20, dt); this.x += (S.x - this.x) * f; this.y += (S.y - this.y) * f;
+    const r = this.ring.style;
+    r.width = w + 'px'; r.height = hh + 'px'; r.borderRadius = Math.min(w, hh) / 2 + 'px';
+    r.transform = `translate3d(${this.x - w/2}px,${this.y - hh/2}px,0)`;
+    this.lo.t = k === 'img' ? 1 : 0; this.lbl.style.opacity = clamp(this.lo.step(dt)); this.lbl.textContent = 'View';
+    this.dot.style.transform = `translate3d(${S.x}px,${S.y}px,0)`; this.dot.style.opacity = caret ? 0 : 1;
+  }},
+
+/* 3 ─────────────────────────────────────────────────────────── */
+{ name:'Darkroom',
+  desc:'Moving exposes a negative. Hold still and it develops: negative → safelight amber → full colour. Click to re-expose.',
+  mount(){
+    this.d = h('div','cur c-dev','<svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="48"/><circle class="prog" cx="50" cy="50" r="48"/></svg><i></i>');
+    this.prog = this.d.querySelector('.prog'); this.flash = this.d.querySelector('i');
+    this.tag = h('div','cur c-tag');
+    this.p = 0; this.x = S.x; this.y = S.y; this.s = spring(100, 300, 26);
+  },
+  frame(dt){
+    if (S.speed > 60) this.p = Math.max(0, this.p - dt * S.speed / 500);
+    else if (S.still > .2) this.p = Math.min(1, this.p + dt / 2.4);
+    const p = this.p;
+    const inv  = clamp(1 - p / .4);                                    // negative fades out first
+    const amber = p > .2 && p < .95 ? Math.sin(Math.PI * (p - .2) / .75) : 0;  // safelight hump
+    const gray = clamp(1 - (p - .6) / .4);                             // colour arrives last
+    setBackdrop(this.d, `invert(${inv}) grayscale(${gray}) sepia(${amber}) hue-rotate(${-30*amber}deg) saturate(${1 + 2.2*amber}) contrast(${1.08 + .2*inv})`);
+    this.prog.style.strokeDashoffset = 301.6 * (1 - p);
+
+    this.s.t = (S.kind === 'link' ? 64 : S.kind === 'img' ? 132 : 100) * (S.down ? .9 : 1);
+    const s = this.s.step(dt), f = ease(14, dt);
+    this.x += (S.x - this.x) * f; this.y += (S.y - this.y) * f;
+    this.d.style.width = this.d.style.height = s + 'px';
+    this.d.style.transform = `translate3d(${this.x - s/2}px,${this.y - s/2}px,0)`;
+    this.tag.textContent = p < .01 ? 'Neg' : p > .999 ? 'Pos · click to re-expose' : `Dev ${String(Math.round(p*100)).padStart(2,'0')}%`;
+    this.tag.style.transform = `translate3d(${this.x - s/2}px,${this.y + s/2 + 10}px,0)`;
+  },
+  down(){ this.p = 0; this.flash.animate([{opacity:.95},{opacity:0}], {duration:600, easing:'cubic-bezier(.2,.7,0,1)'}); }},
+
+/* 4 ─────────────────────────────────────────────────────────── */
+{ name:'Bleed',
+  desc:'The idea turned inside out: the whole page drains to greyscale and the cursor carries the colour, dragging a comet tail of it behind.',
+  mount(){
+    this.ov = h('div','cur c-bleed'); this.pt = h('div','cur c-pt');
+    this.n = [0,1,2,3].map(() => ({x:S.x, y:S.y}));
+    this.r = spring(80, 160, 18);
+    this.ov.animate([{opacity:0},{opacity:1}], {duration:500});
+  },
+  frame(dt){
+    this.r.t = ({img:150, link:96, color:120, text:70}[S.kind] || 80) * (S.down ? 1.6 : 1);
+    const R = this.r.step(dt), rates = [26, 11, 7, 4.5], sizes = [1, .72, .5, .34];
+    this.n.forEach((n, i) => { const to = i ? this.n[i-1] : S, f = ease(rates[i], dt); n.x += (to.x - n.x) * f; n.y += (to.y - n.y) * f; });
+    const m = this.n.map((n, i) => { const r = Math.max(4, R * sizes[i]);
+      return `radial-gradient(circle at ${n.x}px ${n.y}px,transparent ${r*.5}px,#000 ${r}px)`; }).join(',');
+    this.ov.style.maskImage = this.ov.style.webkitMaskImage = m;
+    this.pt.style.transform = `translate3d(${S.x}px,${S.y}px,0)`;
+  }},
+
+/* 5 ─────────────────────────────────────────────────────────── */
+{ name:'Viewfinder',
+  desc:'Autofocus brackets that lock onto whatever you hover. Over an image the rest of the page racks out of focus. Click to take a frame.',
+  mount(){
+    this.blur = h('div','cur c-blur');
+    this.box = h('div','cur c-vf','<b class="tl"></b><b class="tr"></b><b class="bl"></b><b class="br"></b><em></em>');
+    this.cross = this.box.querySelector('em');
+    this.fl = h('div','cur c-flash');
+    this.read = h('div','cur c-read');
+    this.b = ['x','y','w','h'].map((k, i) => spring([S.x-18, S.y-18, 36, 36][i], 520, 36));
+    this.pinch = spring(0, 650, 18); this.bl = spring(0, 140, 22); this.frames = 0;
+  },
+  frame(dt){
+    let r;
+    if (S.target){ const q = S.target.getBoundingClientRect(), pad = 8; r = [q.left-pad, q.top-pad, q.width+pad*2, q.height+pad*2]; }
+    else r = [S.x-18, S.y-18, 36, 36];
+    this.b.forEach((s, i) => s.t = r[i]);
+    const [x, y, w, hh] = this.b.map(s => s.step(dt));
+    const bs = this.box.style;
+    bs.width = w + 'px'; bs.height = hh + 'px'; bs.transform = `translate3d(${x}px,${y}px,0)`;
+    bs.setProperty('--p', this.pinch.step(dt).toFixed(2));
+    this.cross.style.opacity = S.target ? 0 : 1;
+
+    // rack focus: blur everything outside the brackets (even-odd path = page minus box)
+    this.bl.t = S.kind === 'img' ? 5 : 0; const b = this.bl.step(dt);
+    if (b > .05){
+      this.blur.style.display = 'block';
+      setBackdrop(this.blur, `blur(${b.toFixed(2)}px) brightness(${1 - b*.03})`);
+      const W = innerWidth, H = innerHeight;
+      this.blur.style.clipPath = `path(evenodd,'M0 0H${W}V${H}H0Z M${x} ${y}h${w}v${hh}h${-w}Z')`;
+    } else this.blur.style.display = 'none';
+
+    const locked = S.target && Math.abs(w - r[2]) < 2 && Math.abs(x - r[0]) < 2;
+    const spec = S.kind === 'img' ? 'f/2.8 · 1/250 · ISO 200' : S.kind === 'link' ? 'Open ↗' : S.kind === 'color' ? 'WB 5600K' : S.kind === 'text' ? 'MF' : '';
+    this.read.textContent = S.target ? `${locked ? '● ' : '○ '}${S.label}  ·  ${spec}${this.frames ? '  ·  FR ' + String(this.frames).padStart(2,'0') + '/36' : ''}` : (this.frames ? `FR ${String(this.frames).padStart(2,'0')}/36` : '');
+    this.read.style.transform = `translate3d(${x}px,${y + hh + 8}px,0)`;
+  },
+  down(){
+    this.pinch.vel = 220; this.frames = this.frames % 36 + 1;
+    const [x, y, w, hh] = this.b.map(s => s.v), fs = this.fl.style;
+    fs.width = w + 'px'; fs.height = hh + 'px'; fs.transform = `translate3d(${x}px,${y}px,0)`;
+    this.fl.animate([{opacity:.85},{opacity:0}], {duration:420, easing:'ease-out'});
+  }},
+
+/* 6 ─────────────────────────────────────────────────────────── */
+{ name:'Mercury',
+  desc:'A liquid blob in difference blend. Fast moves tear droplets off the tail; stop and they pool back together. Click to splash.',
+  mount(){
+    this.m = h('div','cur c-merc');
+    this.N = 12;
+    this.n = Array.from({length:this.N}, (_, i) => {
+      const e = document.createElement('div'); this.m.append(e);
+      return {x:S.x, y:S.y, r:24 - i * 1.1, e};
+    });
+    this.hr = spring(24, 380, 16); this.drops = [];
+  },
+  frame(dt){
+    this.hr.t = (S.kind === 'link' ? 40 : S.kind === 'img' ? 34 : 24) * (S.down ? .7 : 1);
+    const n = this.n; n[0].x = S.x; n[0].y = S.y; n[0].r = this.hr.step(dt);
+    for (let i = 1; i < this.N; i++){ const f = ease(34 - i * 2.1, dt); n[i].x += (n[i-1].x - n[i].x) * f; n[i].y += (n[i-1].y - n[i].y) * f; }
+    for (const d of this.drops){
+      d.age += dt;
+      if (d.age > .22){ d.vx += (S.x - d.x) * dt * 38; d.vy += (S.y - d.y) * dt * 38; }
+      const damp = Math.exp(-dt * 3.2); d.vx *= damp; d.vy *= damp;
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      if (d.age > .35 && Math.hypot(S.x - d.x, S.y - d.y) < 14){ d.e.remove(); d.dead = true; }
+    }
+    this.drops = this.drops.filter(d => !d.dead);
+    for (const b of n.concat(this.drops)) b.e.style.transform = `translate3d(${b.x - 50}px,${b.y - 50}px,0) scale(${b.r / 50})`;
+  },
+  down(){
+    for (let i = 0; i < 9; i++){
+      const a = Math.random() * Math.PI * 2, v = 520 + Math.random() * 520, e = document.createElement('div');
+      this.m.append(e);
+      this.drops.push({x:S.x, y:S.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, r:10 + Math.random()*7, age:0, e});
+    }
+  }},
+
+/* 7 ─────────────────────────────────────────────────────────── */
+{ name:'Ruler',
+  desc:'Designer’s guides: crosshair lines to the edges, live coordinates, and the dimensions of whatever you hover. Click-drag to measure.',
+  mount(){
+    h('div','cur c-tx'); h('div','cur c-ty');
+    this.vl = h('div','cur c-vl'); this.hl = h('div','cur c-hl'); this.rc = h('div','cur c-rc');
+    this.lx = h('div','cur c-rl'); this.ly = h('div','cur c-rl');
+    this.box = h('div','cur c-rbox','<span class="w"></span><span class="h"></span><span class="n"></span>');
+    [this.bw, this.bh, this.bn] = this.box.children;
+    this.mq = h('div','cur c-mq','<span></span>'); this.mq.style.opacity = 0;
+    this.r = [S.x, S.y, 0, 0];
+  },
+  frame(dt){
+    const x = Math.round(S.x), y = Math.round(S.y);
+    this.vl.style.transform = `translate3d(${x}px,0,0)`; this.vl.style.setProperty('--y', y + 'px');
+    this.hl.style.transform = `translate3d(0,${y}px,0)`; this.hl.style.setProperty('--x', x + 'px');
+    this.rc.style.transform = `translate3d(${x}px,${y}px,0)`;
+    this.lx.textContent = 'X ' + String(x).padStart(4,'0'); this.lx.style.transform = `translate3d(${x + 6}px,13px,0)`;
+    this.ly.textContent = 'Y ' + String(y).padStart(4,'0'); this.ly.style.transform = `translate3d(14px,${y + 4}px,0)`;
+
+    const t = S.target && !this.start;
+    if (t){
+      const q = S.target.getBoundingClientRect(), f = ease(26, dt), to = [q.left, q.top, q.width, q.height];
+      this.r = this.r.map((v, i) => v + (to[i] - v) * f);
+      this.bw.textContent = Math.round(q.width); this.bh.textContent = Math.round(q.height); this.bn.textContent = S.kind + ' · ' + S.label;
+    }
+    const [bx, by, bw, bh] = this.r, s = this.box.style;
+    s.width = bw + 'px'; s.height = bh + 'px'; s.transform = `translate3d(${bx}px,${by}px,0)`; s.opacity = t ? 1 : 0;
+
+    if (this.start){
+      const x0 = Math.min(this.start.x, S.x), y0 = Math.min(this.start.y, S.y), w = Math.abs(S.x - this.start.x), hh = Math.abs(S.y - this.start.y);
+      const m = this.mq.style; m.width = w + 'px'; m.height = hh + 'px'; m.transform = `translate3d(${x0}px,${y0}px,0)`;
+      this.mq.firstChild.textContent = `${Math.round(w)} × ${Math.round(hh)}`;
+    }
+  },
+  down(){ this.start = {x:S.x, y:S.y}; this.mq.getAnimations().forEach(a => a.cancel()); this.mq.style.opacity = 1; },
+  up(){ this.start = null; this.mq.animate([{opacity:1},{opacity:1, offset:.6},{opacity:0}], {duration:1400, fill:'forwards'}); }},
+];
+
+/* ───────────────────────── switching + loop ───────────────────────── */
+let cur = V[0], idx = 0;
+const dock = document.getElementById('dock'), now = document.getElementById('now');
+dock.innerHTML = V.map((v, i) => `<button data-i="${i}" data-kind="link" data-cursor="${v.name}"><span>${i+1}</span>${v.name}</button>`).join('')
+  + '<i class="sep"></i><button id="look" data-kind="link" data-cursor="Toggle look"><span>L</span>Light</button>';
+dock.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'look') return toggleLook();
+  use(+b.dataset.i);
+});
+function toggleLook(){
+  const light = document.body.classList.toggle('light');
+  document.getElementById('look').lastChild.textContent = light ? 'Dark' : 'Light';
+  try { localStorage.setItem('cursor-look', light ? 'light' : 'dark'); } catch {}
+}
+function use(i){
+  idx = (i + V.length) % V.length;
+  root.replaceChildren(); cur = V[idx];
+  if (S.seen) cur.mount();
+  dock.querySelectorAll('button[data-i]').forEach(b => b.classList.toggle('on', +b.dataset.i === idx));
+  now.children[0].textContent = `Cursor ${String(idx+1).padStart(2,'0')} / ${String(V.length).padStart(2,'0')}`;
+  now.children[1].textContent = cur.name; now.children[2].textContent = cur.desc;
+  history.replaceState(null, '', '#' + (idx + 1));
+  try { localStorage.setItem('cursor-variant', idx); } catch {}
+}
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-9]$/.test(e.key) && +e.key <= V.length) use(+e.key - 1);
+  else if (e.key === 'ArrowRight') use(idx + 1);
+  else if (e.key === 'ArrowLeft') use(idx - 1);
+  else if (e.key.toLowerCase() === 'l') toggleLook();
+});
+
+let saved = null;
+try { saved = localStorage.getItem('cursor-variant'); if (localStorage.getItem('cursor-look') === 'light') toggleLook(); } catch {}
+const fromHash = parseInt(location.hash.slice(1), 10);
+use(fromHash >= 1 && fromHash <= V.length ? fromHash - 1 : saved != null ? +saved : 0);
+
+let last = performance.now();
+function tick(t){
+  const dt = Math.min((t - last) / 1000, 1/30) || 1/60; last = t;
+  S.vx += ((S.x - S.px) / dt - S.vx) * .3; S.vy += ((S.y - S.py) / dt - S.vy) * .3;
+  S.speed = Math.hypot(S.vx, S.vy); S.px = S.x; S.py = S.y;
+  S.still = (t - S.lastMove) / 1000;
+  if (S.seen) cur.frame(dt, t);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

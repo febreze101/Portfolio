@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Case Study Carousel Lab</title>
+<link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=boska@400,500&display=swap">
+<style>
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bd79c75cceb3db1a6_Helvetica.ttf);font-weight:400}
+@font-face{font-family:"GreatLakes";src:url(../../site/public/fonts/68f155d8c639d822900aff54_GreatLakesNF.ttf)}
+:root{
+  --bg:#1c1a1b;--fg:#e4e4df;--soft:#c4c4be;--dim:#8a8884;--faint:#4a4748;--line:#343132;--card:#211f20;
+  --sans:"aktiv-grotesk","Helv",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  --display:"GreatLakes","Boska",serif;
+  --ease:cubic-bezier(.2,.7,0,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+img{display:block}
+
+/* ── lab chrome ─────────────────────────────── */
+.bar{position:fixed;left:0;right:0;top:0;z-index:20;display:flex;align-items:center;gap:16px;padding:18px 24px;flex-wrap:wrap}
+.bar h1{font-size:13px;font-weight:700}
+.bar .hint{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+.vars{display:flex;flex-direction:column;gap:5px}
+.vrow{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.vlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);width:92px}
+.vars button{font-size:11.5px;padding:7px 12px;border:1px solid var(--line);border-radius:3px;color:var(--soft)}
+.vars button:hover{border-color:var(--faint);color:var(--fg)}
+.vars button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.vdesc{position:fixed;left:24px;bottom:22px;z-index:20;max-width:520px;font-size:12px;line-height:1.5;color:var(--dim)}
+.vdesc b{color:var(--fg);font-weight:500}
+.nav{position:fixed;right:24px;bottom:18px;z-index:20;display:flex;gap:6px}
+.nav button{width:38px;height:38px;border:1px solid var(--line);border-radius:3px;color:var(--soft)}
+.nav button:hover{border-color:var(--fg);color:var(--fg)}
+
+/* ── carousel track (shared) ─────────────────── */
+.stage{position:fixed;inset:0;display:flex;align-items:center}
+.track{display:flex;align-items:center;gap:var(--gap,28px);overflow-x:auto;overflow-y:hidden;width:100%;height:100%;
+  scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 calc(50vw - var(--cw) / 2);cursor:grab;overscroll-behavior-x:contain}
+.track::-webkit-scrollbar{display:none}
+.track.drag{cursor:grabbing;scroll-snap-type:none}
+.card{flex:none;width:var(--cw);scroll-snap-align:center;position:relative;user-select:none;-webkit-user-drag:none}
+.card img{pointer-events:none}
+
+/* shared media: cover at rest; on play, the full-page screenshot (or a video) takes over */
+.media{position:relative;overflow:hidden;background:#111;aspect-ratio:16/10}
+.media .cover,.media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.media .cover{transition:opacity .5s ease,transform 1.4s var(--ease),filter .6s ease}
+.media .page{position:absolute;left:0;top:0;width:100%;height:auto;opacity:0;will-change:transform;transition:opacity .45s ease}
+.media video{opacity:0;transition:opacity .4s ease}
+.playing .media .page,.playing .media video{opacity:1}
+.playing .media .cover{opacity:0;transform:scale(1.04)}
+.media .play{position:absolute;right:12px;bottom:12px;z-index:3;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 9px;border-radius:999px;background:rgba(0,0,0,.55);color:#eee;opacity:1;transition:opacity .3s}
+.playing .media .play{opacity:0}
+.meta-mono{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chips span{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);border:1px solid var(--line);border-radius:2px;padding:3px 6px}
+
+/* ── V1 · Frame: big landscape frame, editorial caption underneath ── */
+.v-frame{--cw:min(64vw,900px);--gap:40px}
+.v-frame .media{border-radius:3px}
+.v-frame .cap{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:baseline;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.v-frame .cap h3{font-size:22px;font-weight:500;letter-spacing:-.01em}
+.v-frame .cap p{color:var(--dim);font-size:13px;margin-top:4px}
+.v-frame .card{opacity:.45;transition:opacity .6s ease}
+.v-frame .card.near{opacity:1}
+
+/* ── Frame family: V1's big frame + editorial caption, with different thin-border treatments ── */
+.v-hair,.v-mat,.v-crop,.v-label,.v-split,.v-trace{--cw:min(64vw,900px);--gap:44px}
+:is(.v-hair,.v-mat,.v-crop,.v-label,.v-split,.v-trace) .card{opacity:.4;transition:opacity .6s ease}
+:is(.v-hair,.v-mat,.v-crop,.v-label,.v-split,.v-trace) .card.near{opacity:1}
+:is(.v-hair,.v-mat,.v-crop,.v-label,.v-trace) .cap{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:baseline}
+:is(.v-hair,.v-mat,.v-crop,.v-label,.v-split,.v-trace) .cap h3{font-size:22px;font-weight:500;letter-spacing:-.01em}
+:is(.v-hair,.v-mat,.v-crop,.v-label,.v-split,.v-trace) .cap p{color:var(--dim);font-size:13px;margin-top:4px}
+
+/* Hairline: one 1px border wraps image + caption, a little breathing room inside; brightens on play */
+.v-hair .card{border:1px solid var(--line);border-radius:10px;padding:12px;transition:opacity .6s ease,border-color .5s ease;cursor:pointer}
+.v-hair .media{border-radius:5px}                     /* inner radius = outer minus padding, roughly, so the corners nest */
+.v-hair .card.playing{border-color:var(--soft)}
+.v-hair .cap{margin-top:12px;padding:12px 4px 2px;border-top:1px solid var(--line)}
+
+/* Mat: a gallery passe-partout — wide mat, hairline inside and out, small centred label like a museum card */
+.v-mat .card{border:1px solid var(--faint);padding:30px 30px 22px;background:#201e1f;transition:opacity .6s ease,border-color .5s ease}
+.v-mat .media{outline:1px solid var(--line);outline-offset:6px}
+.v-mat .card.playing{border-color:var(--soft)}
+.v-mat .cap{margin-top:22px}
+.v-mat .cap h3{font-size:16px}
+
+/* Crop marks: no box, just registration marks at the corners + mono labels — the technical look */
+.v-crop .card{padding:22px}
+.v-crop .tick{position:absolute;width:16px;height:16px;border:0 solid var(--soft);transition:width .6s var(--ease),height .6s var(--ease),border-color .5s}
+.v-crop .tick.tl{left:0;top:0;border-left-width:1px;border-top-width:1px}.v-crop .tick.tr{right:0;top:0;border-right-width:1px;border-top-width:1px}
+.v-crop .tick.bl{left:0;bottom:0;border-left-width:1px;border-bottom-width:1px}.v-crop .tick.br{right:0;bottom:0;border-right-width:1px;border-bottom-width:1px}
+.v-crop .card.playing .tick{width:34px;height:34px;border-color:var(--fg)}
+.v-crop .corner{position:absolute;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.v-crop .corner.c1{left:24px;top:4px}.v-crop .corner.c2{right:24px;top:4px}
+.v-crop .cap{margin-top:16px}
+
+/* Label: thin border with a boxed name tab breaking the top edge (like the NHN reference) */
+.v-label .card{border:1px solid var(--faint);padding:26px 14px 14px;margin-top:14px;transition:opacity .6s ease,border-color .5s ease}
+.v-label .tab{position:absolute;left:18px;top:-12px;padding:4px 10px;border:1px solid var(--soft);background:var(--bg);
+  font-size:12px;font-weight:500;line-height:1.1;transition:background .4s,color .4s}
+.v-label .card.playing{border-color:var(--soft)}
+.v-label .card.playing .tab{background:var(--fg);color:var(--bg)}
+.v-label .cap{margin-top:14px}
+
+/* Split: one bordered panel — caption column on the left, frame on the right */
+.v-split .card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.2fr);border:1px solid var(--line);transition:opacity .6s ease,border-color .5s ease}
+.v-split .cap{display:flex;flex-direction:column;justify-content:space-between;gap:18px;padding:20px;border-right:1px solid var(--line)}
+.v-split .cap h3{font-size:24px;line-height:1.1}
+.v-split .media{aspect-ratio:16/10.5}
+.v-split .card.playing{border-color:var(--soft)}
+
+/* Trace: dim hairline at rest; on play a bright segment runs clockwise round the border while the media plays */
+.v-trace .card{padding:12px}
+.v-trace .trace{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.v-trace .trace rect{fill:none;stroke-width:1;vector-effect:non-scaling-stroke}
+.v-trace .trace .base{stroke:var(--line)}
+.v-trace .trace .run{stroke:var(--fg);stroke-dasharray:.18 .82;stroke-dashoffset:1;opacity:0;transition:opacity .4s}
+.v-trace .card.playing .trace .run{opacity:1;animation:trace 3.2s linear infinite}
+@keyframes trace{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.v-trace .card.playing .trace .run{animation:none;stroke-dasharray:none}}
+.v-trace .cap{margin-top:12px;padding:12px 4px 2px}
+
+/* "open full site" link at the end of the caption row (arrow-out-of-box icon) */
+.visit{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:6px;color:var(--soft);
+  transition:color .2s,border-color .2s,background .2s;align-self:center}
+.visit:hover{color:var(--bg);background:var(--fg);border-color:var(--fg)}
+.visit svg{width:15px;height:15px}
+.cap .tail{display:flex;gap:10px;align-items:center}
+
+/* ── opened states ──────────────────────────────────────────────── */
+.scrim{position:fixed;inset:0;z-index:30;background:rgba(10,9,9,.6);opacity:0;pointer-events:none;transition:opacity .5s ease}
+.scrim.on{opacity:1;pointer-events:auto}
+.case{position:fixed;z-index:40;background:var(--bg);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;visibility:hidden}
+.case.on{visibility:visible}
+.case-in{max-width:1100px;margin:0 auto;padding:22px 28px 60px;opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .7s var(--ease)}
+.case.on.ready .case-in{opacity:1;transform:none}
+.ch{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:start;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.ch h2{font-size:clamp(26px,3.4vw,44px);font-weight:500;letter-spacing:-.015em;line-height:1.05}
+.ch p{color:var(--dim);font-size:14px;margin-top:6px}
+.ch .tail{display:flex;gap:8px;align-items:center}
+.ch .close{width:30px;height:30px;border:1px solid var(--line);border-radius:6px;color:var(--soft);font-size:16px;line-height:1}
+.ch .close:hover{border-color:var(--fg);color:var(--fg)}
+.case .hero{margin-top:18px;border:1px solid var(--line);border-radius:10px;padding:10px}
+.case .hero .media{border-radius:5px}
+.cbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:40px;margin-top:34px}
+.facts{display:grid;gap:14px;align-content:start}
+.facts dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.facts dd{font-size:13.5px;color:var(--soft)}
+.facts a{border-bottom:1px solid var(--faint)}
+.facts a:hover{border-color:var(--fg)}
+.overview{font-size:17px;line-height:1.6;color:var(--soft);max-width:62ch}
+.gallery{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:40px}
+.gallery figure{border:1px solid var(--line);border-radius:10px;padding:8px;overflow:hidden}
+.gallery img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:5px;aspect-ratio:4/3}
+.gallery .tall{grid-column:1/-1}
+.gallery .tall img{aspect-ratio:auto;max-height:none}
+.nextp{display:flex;justify-content:space-between;align-items:baseline;margin-top:48px;padding-top:18px;border-top:1px solid var(--line);cursor:pointer}
+.nextp b{font-size:clamp(22px,2.6vw,34px);font-weight:500}
+.nextp:hover b{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:1px}
+
+/* Expand: the opened page grows out of the card's own rectangle (clip-path), then the content rises in */
+.case.as-expand{inset:0;clip-path:inset(var(--ct) var(--cr) var(--cb) var(--cl) round 10px);transition:clip-path .75s var(--ease)}
+.case.as-expand.ready{clip-path:inset(0 round 0)}
+/* Sheet: a panel slides in from the right; the carousel stays visible, dimmed and nudged left */
+.case.as-sheet{top:0;right:0;bottom:0;width:min(640px,94vw);border-left:1px solid var(--line);transform:translateX(100%);transition:transform .7s var(--ease)}
+.case.as-sheet.ready{transform:none}
+.case.as-sheet .cbody,.case.as-sheet .gallery{grid-template-columns:1fr}
+.stage.shifted .track{transform:translateX(-14vw);transition:transform .7s var(--ease)}
+.stage .track{transition:transform .7s var(--ease)}
+/* Takeover: everything fades away and the case study fades up in its place */
+.case.as-takeover{inset:0;opacity:0;transition:opacity .5s ease}
+.case.as-takeover.ready{opacity:1}
+/* Window: a framed panel over the dimmed carousel — matches the main prototype's windows */
+.case.as-window{inset:5vh 6vw;border:1px solid var(--faint);border-radius:12px;box-shadow:0 50px 120px -30px rgba(0,0,0,.9);
+  opacity:0;transform:scale(.97) translateY(12px);transition:opacity .45s ease,transform .7s var(--ease)}
+.case.as-window.ready{opacity:1;transform:none}
+@media (max-width:760px){.cbody,.gallery{grid-template-columns:1fr}.ch{grid-template-columns:1fr auto}.ch .meta-mono{display:none}}
+
+/* ── V2 · Window: browser chrome + a detail shot, like a live site preview ── */
+.v-window{--cw:min(58vw,820px);--gap:80px}
+.v-window .chrome{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);transition:transform .7s var(--ease),box-shadow .7s var(--ease)}
+.v-window .tb{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-bottom:1px solid var(--line)}
+.v-window .tb i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.v-window .tb .url{margin:0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);padding:3px 12px;border-radius:999px;background:rgba(255,255,255,.04)}
+/* a second "detail" print (the project's portrait shot) tucked under the window's corner */
+.v-window .detail{position:absolute;right:-28px;bottom:-30px;width:24%;aspect-ratio:4/5;border-radius:4px;overflow:hidden;background:#111;outline:1px solid var(--line);
+  box-shadow:0 24px 50px -10px rgba(0,0,0,.7);transform:rotate(3deg);transition:transform .8s var(--ease)}
+.v-window .detail img{width:100%;height:100%;object-fit:cover}
+.v-window .card.playing .chrome{transform:translateY(-6px);box-shadow:0 40px 80px -30px rgba(0,0,0,.8)}
+.v-window .card.playing .detail{transform:translate(12px,-14px) rotate(-2deg)}
+.v-window .above{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.v-window .above h3{font-size:15px;font-weight:500}
+
+/* ── V3 · Index: huge type is the slide; a small media window grows and plays on hover ── */
+.v-index{--cw:min(70vw,980px);--gap:0px}
+.v-index .card{height:62vh;display:flex;flex-direction:column;justify-content:center}
+.v-index .num{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em}
+.v-index h3{font-family:var(--display);font-weight:400;font-size:clamp(48px,8.4vw,132px);line-height:.92;letter-spacing:-.01em;margin:10px 0 18px;
+  color:transparent;-webkit-text-stroke:1px var(--faint);transition:color .6s ease,-webkit-text-stroke-color .6s ease;max-width:66%}   /* clear of the preview */
+.v-index .card.near h3{color:var(--fg);-webkit-text-stroke-color:transparent}
+.v-index .sub{display:flex;gap:18px;align-items:center;color:var(--dim);font-size:13px}
+.v-index .media{position:absolute;right:0;top:50%;width:28%;transform:translateY(-50%) rotate(2deg);border-radius:4px;z-index:2;
+  transition:width .8s var(--ease),transform .8s var(--ease),box-shadow .8s var(--ease)}
+.v-index .card.playing .media{width:52%;transform:translateY(-50%) rotate(0);box-shadow:0 40px 90px -20px rgba(0,0,0,.85)}
+.v-index .card:not(.near) .media{opacity:.25}
+
+/* ── V4 · Deck: overlapping tilted cards; hover pulls one forward, straightens it and plays ── */
+.v-deck{--cw:min(40vw,560px);--gap:-90px}
+.v-deck .card{transition:transform .7s var(--ease),filter .5s ease;transform:rotate(var(--rot)) translateY(var(--dy));z-index:1}
+.v-deck .card:nth-child(3n+1){--rot:-4deg;--dy:10px}.v-deck .card:nth-child(3n+2){--rot:2.5deg;--dy:-14px}.v-deck .card:nth-child(3n){--rot:-1.5deg;--dy:16px}
+.v-deck .media{aspect-ratio:4/5;border-radius:6px;box-shadow:0 30px 60px -20px rgba(0,0,0,.8)}
+.v-deck .media .cover{object-position:center top}
+.v-deck .tag{position:absolute;left:14px;bottom:14px;z-index:3;padding:10px 12px;border-radius:4px;background:rgba(18,17,17,.82);backdrop-filter:blur(6px)}
+.v-deck .tag h3{font-size:15px;font-weight:500}
+.v-deck .tag p{font-size:11.5px;color:var(--dim);margin-top:2px}
+.v-deck .track:hover .card:not(.playing){filter:brightness(.55)}
+.v-deck .card.playing{transform:rotate(0) translateY(-10px) scale(1.06);z-index:5}
+
+/* ── V5 · Mono bloom: grayscale halftone at rest; hover blooms to colour with the project's glow behind it ── */
+.v-mono{--cw:min(54vw,760px);--gap:56px}
+.v-mono .wrap{position:relative}
+.v-mono .wrap::before{content:"";position:absolute;inset:8% 4% -6%;border-radius:50%;background:rgb(var(--tint));filter:blur(60px);opacity:0;transform:scale(.8);
+  transition:opacity .9s ease,transform 1.2s var(--ease);z-index:0}
+.v-mono .card.playing .wrap::before{opacity:.55;transform:scale(1)}
+.v-mono .media{z-index:1;border-radius:2px;outline:1px solid var(--line)}
+.v-mono .media .cover{filter:grayscale(1) contrast(1.15) brightness(.85)}
+.v-mono .media::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;    /* halftone dots — fade out on play */
+  background:radial-gradient(circle,rgba(28,26,27,.55) 28%,transparent 32%) 0 0/5px 5px;transition:opacity .6s ease}
+.v-mono .card.playing .media::after{opacity:0}
+.v-mono .cap{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:baseline;margin-top:14px}
+.v-mono .cap h3{font-size:18px;font-weight:500}
+.v-mono .cap .meta-mono{transition:color .5s}
+.v-mono .card.playing .cap .meta-mono{color:rgb(var(--tint))}
+
+@media (max-width:760px){
+  .v-frame,.v-window,.v-mono,.v-hair,.v-mat,.v-crop,.v-label,.v-trace{--cw:84vw}
+  .v-split{--cw:88vw}.v-split .card{grid-template-columns:1fr}.v-split .cap{border-right:0;border-bottom:1px solid var(--line)}.v-deck{--cw:70vw;--gap:-50px}.v-index{--cw:88vw}
+  .v-window .detail{right:-10px}
+  .vdesc{right:110px}
+}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>Case studies · carousel looks</h1>
+  <div class="vars" id="vars"></div>
+  <span class="hint">1–0 switch · drag / scroll / ← → · hover to play</span>
+</div>
+<div class="stage" id="stage"><div class="track" id="track"></div></div>
+<p class="vdesc" id="vdesc"></p>
+<div class="scrim" id="scrim"></div>
+<div class="case" id="case" role="dialog" aria-modal="true" aria-label="Case study"></div>
+<div class="nav"><button id="prev" aria-label="Previous">←</button><button id="next" aria-label="Next">→</button></div>
+
+<script>
+/* content (Sanity: hvkunqtv/production). `video`: drop in an mp4/webm URL per project to replace the scroll stand-in. */
+const CDN = 'https://cdn.sanity.io/images/hvkunqtv/production/';
+const WORKS = [
+  {name: "Barb's Breakfast Bar", summary: 'Eccentric mobile breakfast bar', cats: ['Webflow', 'Figma', 'Website'], url: 'barbsbreakfastbar.com', tint: '255,115,31', video: null,
+   link: 'https://www.barbsbreakfastbar.com/',
+   text: "The objective was to create a five-page website for a local mobile breakfast business. They wanted a site that embodied their surrealist, out-of-this-world vibe — something whimsical, unexpected, and memorable. The final design is full of interactive elements, bold visuals, and layered textures that reflect the brand's playful personality. From animated call-to-actions to immersive flavor journeys, every page is designed to draw users in and make the experience feel more like an adventure than a menu browse.",
+   imgs: ['39910811d41daf8e9ae693f5a729e9198ada7bb2-1440x1024.png', '9c3c8e1edd31a6b294556527ab8471646ba650bd-1440x3233.png', 'f76d7b26361960046b8b91ae037eaf6665d6ce23-1440x1039.png', 'fe5fa9474f0a151d631100a36d1c5a2e9116795e-824x1030.png']},
+  {name: 'Palermo Rose Garden', summary: 'High-end destination resort', cats: ['Figma', 'Spec site', 'Hospitality'], url: 'figma.com/palermo-garden', tint: '217,77,107', video: null,
+   link: 'https://www.figma.com/design/jlukxAwXjOW37wNnYgfPH3/Palermo-Garden-Slides?node-id=0-1',
+   text: 'The objective was to create an elegant landing page that showcased a unique getaway in a fictitious location. The website serves as a digital gateway for potential guests to explore the location, learn about its offerings, and make direct bookings. The focus is on providing a personalized, immersive experience that reflects the charm and exclusivity of the getaway.',
+   imgs: ['2afd7c757bb01dc68e29b10f9d4a7183c2e1d1fe-1440x1024.png', 'cc9eb2752d7971620a1a2f8ad120f48cea55772b-1440x3233.png', '79092eb4b7c43268ac27bc8c3d3afd7e61113d4c-1440x1024.png', '8be66d8c6388a809d1af75b8e34d5b5f60377a94-799x1198.png']},
+  {name: 'The Daily Grind', summary: 'High-end coffee roastery site', cats: ['Figma', 'Webflow', 'Spec site'], url: 'the-daily-grind.webflow.io', tint: '176,120,72', video: null,
+   link: 'https://the-daily-grind-c9885a.webflow.io/',
+   text: 'The core design challenge was to create a visual identity and e-commerce experience that bridged the precise science of roasting with the welcoming warmth of the cafe — a sophisticated, minimalist aesthetic in charcoal greys, warm creams, and deep browns. The editorial layout, powered by CSS Grid, highlights product photography while prioritizing content hierarchy. A classic serif for headers and a clean sans-serif for reading reinforce the “craft” focus, and a mobile-first approach delivers a platform for both national e-commerce and local community.',
+   imgs: ['af809c2788254dc54cdf44470406d9a1751a6c5a-1440x1064.png', 'd91c7313bab5d55ab4bee512710fe87be05db9fc-1439x3263.png', '82558d7b75b72b6e69bcb5bb754442556d126929-1439x2553.png', 'eb96eeab15997892fb1e132fdc7220bf1e507434-801x1200.png']},
+];
+const src = (f, w) => `${CDN}${f}?w=${w}&auto=format&q=80`;
+const pad = n => String(n).padStart(2, '0');
+const $ = s => document.querySelector(s);
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(hover: none)').matches;
+
+/* ── media: shared by every variation ── */
+const media = (w, opts = {}) => `
+  <div class="media">
+    <img class="cover" src="${src(w.imgs[0], 1400)}" alt="" loading="lazy">
+    ${w.video ? `<video src="${w.video}" muted loop playsinline preload="none"></video>` : `<img class="page" src="${src(w.imgs[1], 1200)}" alt="" loading="lazy">`}
+    ${opts.noBadge ? '' : `<span class="play">${TOUCH ? 'Tap to play' : 'Hover to play'}</span>`}
+  </div>`;
+
+// the Frame family shares this caption: index · title + summary · tags
+const chips = w => `<div class="chips">${w.cats.map(c => `<span>${c}</span>`).join('')}</div>`;
+// opens the live site in a new tab; arrow-out-of-box icon
+const visit = w => `<a class="visit" href="${w.link}" target="_blank" rel="noopener" title="Open full site" aria-label="Open the ${w.name} site in a new tab">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 2.5h4.5V7"/><path d="M13.5 2.5 7.5 8.5"/><path d="M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"/></svg></a>`;
+const capRow = (w, i) => `<div class="cap"><span class="meta-mono">${pad(i + 1)}</span><div><h3>${w.name}</h3><p>${w.summary}</p></div><div class="tail">${chips(w)}${visit(w)}</div></div>`;
+
+const VARIANTS = [
+  {key: 'frame', fam: 'frame', name: 'Frame', desc: '<b>Frame.</b> A big landscape frame with an editorial caption ruled underneath. Neighbours fade back; hover plays the site walkthrough.',
+   card: (w, i) => `${media(w)}
+     <div class="cap"><span class="meta-mono">${pad(i + 1)}</span>
+       <div><h3>${w.name}</h3><p>${w.summary}</p></div>
+       ${chips(w)}</div>`},
+  {key: 'hair', fam: 'frame', name: 'Hairline', desc: '<b>Hairline.</b> Frame, wrapped in a single 1px border with a little breathing room — image and caption read as one object. The border brightens while it plays.',
+   card: (w, i) => `${media(w)}${capRow(w, i)}`},
+  {key: 'mat', fam: 'frame', name: 'Mat', desc: '<b>Mat.</b> A gallery passe-partout: wide mat, hairline outside and a second offset hairline around the image, with a small museum-style label.',
+   card: (w, i) => `${media(w)}${capRow(w, i)}`},
+  {key: 'crop', fam: 'frame', name: 'Crop marks', desc: '<b>Crop marks.</b> No box — registration marks at the corners and mono labels, like a print proof. The marks grow inward-out while it plays. Fits the technical mono look.',
+   card: (w, i) => `<span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+     <span class="corner c1">${pad(i + 1)} / ${pad(WORKS.length)}</span><span class="corner c2">${w.url}</span>
+     ${media(w)}${capRow(w, i)}`},
+  {key: 'label', fam: 'frame', name: 'Label tab', desc: '<b>Label tab.</b> A thin border with a boxed name tab breaking its top edge, borrowed from your NHN reference. The tab inverts while it plays.',
+   card: (w, i) => `<span class="tab">${w.name}</span>${media(w)}${capRow(w, i)}`},
+  {key: 'split', fam: 'frame', name: 'Split', desc: '<b>Split.</b> One bordered panel: caption column on the left (index, title, summary, tags), the frame on the right. More case-study, less gallery.',
+   card: (w, i) => `<div class="cap"><span class="meta-mono">${pad(i + 1)} / ${pad(WORKS.length)}</span>
+       <div><h3>${w.name}</h3><p>${w.summary}</p></div>${chips(w)}</div>${media(w)}`},
+  {key: 'trace', fam: 'frame', name: 'Trace', desc: '<b>Trace.</b> A dim hairline at rest; while it plays, a bright segment runs clockwise round the border — the frame itself becomes a progress/playing indicator.',
+   card: (w, i) => `<svg class="trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+       <rect class="base" x="0" y="0" width="100" height="100"/><rect class="run" x="0" y="0" width="100" height="100" pathLength="1"/></svg>
+     ${media(w)}${capRow(w, i)}`},
+  {key: 'window', name: 'Window', desc: '<b>Window.</b> Each project as a live browser window with a detail shot tucked under its corner — reads as “real shipped sites”. Hover scrolls the page and lifts the detail.',
+   card: w => `<div class="above"><h3>${w.name}</h3><span class="meta-mono">${w.cats.join(' / ')}</span></div>
+     <div class="chrome"><div class="tb"><i></i><i></i><i></i><span class="url">${w.url}</span></div>${media(w)}</div>
+     <div class="detail"><img src="${src(w.imgs[3], 500)}" alt="" loading="lazy"></div>`},
+  {key: 'index', name: 'Index', desc: '<b>Index.</b> Typography is the slide — huge outlined titles that fill in as they centre. A small tilted preview grows and plays on hover.',
+   card: (w, i) => `<span class="num">${pad(i + 1)} / ${pad(WORKS.length)}</span><h3>${w.name}</h3>
+     <div class="sub"><span>${w.summary}</span><div class="chips">${w.cats.map(c => `<span>${c}</span>`).join('')}</div></div>${media(w, {noBadge: true})}`},
+  {key: 'deck', name: 'Deck', desc: '<b>Deck.</b> Overlapping, slightly tilted portrait cards like a spread of prints. Hover pulls one forward, straightens it, dims the rest and plays.',
+   card: w => `${media(w, {noBadge: true})}<div class="tag"><h3>${w.name}</h3><p>${w.summary}</p></div>`},
+  {key: 'mono', name: 'Mono bloom', desc: '<b>Mono bloom.</b> Matches the monochrome look: grayscale halftone at rest. Hover blooms it to full colour with the project’s own glow rising behind it.',
+   card: (w, i) => `<div class="wrap" style="--tint:${w.tint}">${media(w)}</div>
+     <div class="cap" style="--tint:${w.tint}"><h3>${w.name}</h3><span class="meta-mono">${pad(i + 1)} · ${w.cats[0]}</span></div>`},
+];
+
+/* ── playback: video plays; the screenshot stand-in scrolls down the page and back, ping-pong, while hovered ── */
+function play(card) {
+  if (card.classList.contains('playing')) return;
+  card.classList.add('playing');
+  const v = card.querySelector('video');
+  if (v) { v.play().catch(() => {}); return; }
+  const pg = card.querySelector('.page'), box = card.querySelector('.media');
+  if (!pg || RM) return;
+  let down = true;
+  const leg = () => {
+    if (!card.classList.contains('playing')) return;
+    const dist = Math.max(0, pg.offsetHeight - box.clientHeight);
+    if (!dist) { card._t = setTimeout(leg, 300); return; }        // image not loaded yet
+    const secs = Math.max(2.5, dist / 140);                       // ~140 px/s reads like a calm screen recording
+    pg.style.transition = `transform ${secs}s cubic-bezier(.45,0,.55,1), opacity .45s ease`;
+    pg.style.transform = `translateY(${down ? -dist : 0}px)`;
+    down = !down;
+    card._t = setTimeout(leg, secs * 1000 + 700);                 // short hold at each end
+  };
+  card._t = setTimeout(leg, 250);
+}
+function stop(card) {
+  card.classList.remove('playing'); clearTimeout(card._t);
+  const v = card.querySelector('video'); if (v) { v.pause(); return; }
+  const pg = card.querySelector('.page');
+  if (pg) { pg.style.transition = 'transform .9s var(--ease), opacity .45s ease'; pg.style.transform = 'translateY(0)'; }
+}
+
+/* ── build a variation ── */
+const stage = $('#stage'), track = $('#track');
+let current = 0;
+function build(k) {
+  current = (k + VARIANTS.length) % VARIANTS.length;
+  const V = VARIANTS[current];
+  stage.className = `stage v-${V.key}`;
+  // three projects are a short carousel — repeat the set so there's always something either side
+  const items = [...WORKS, ...WORKS, ...WORKS].map((w, i) => ({w, i: i % WORKS.length}));
+  track.innerHTML = items.map(({w, i}) => `<article class="card" data-i="${i}">${V.card(w, i)}</article>`).join('');
+  $('#vdesc').innerHTML = V.desc;
+  $('#vars').querySelectorAll('button[data-v]').forEach(b => b.classList.toggle('on', +b.dataset.v === current));
+  requestAnimationFrame(() => {                                   // start on the middle copy of the first project
+    const c = track.children[WORKS.length];
+    track.scrollLeft = c.offsetLeft + c.offsetWidth / 2 - track.clientWidth / 2;
+    markNear();
+  });
+  track.querySelectorAll('.card').forEach(card => {
+    if (!TOUCH) { card.addEventListener('pointerenter', () => !dragging && play(card)); card.addEventListener('pointerleave', () => stop(card)); }
+    // click opens the case study (but not after a drag, and not when the click was the "open full site" link)
+    card.addEventListener('click', e => { if (moved > 6 || e.target.closest('.visit')) return; openCase(+card.dataset.i, card); });
+  });
+  try { localStorage.setItem('proto-cases', current); } catch {}
+}
+// switcher: Frame family on the first row, the other looks on the second; number keys 1–9, 0 = 10th
+const keyLabel = i => i < 9 ? i + 1 : i === 9 ? 0 : '';
+$('#vars').innerHTML = ['frame', 'other'].map(f =>
+  `<div class="vrow"><span class="vlab">${f === 'frame' ? 'Frame family' : 'Other looks'}</span>${VARIANTS.map((v, i) => (v.fam === 'frame') === (f === 'frame')
+    ? `<button data-v="${i}">${keyLabel(i) !== '' ? keyLabel(i) + ' · ' : ''}${v.name}</button>` : '').join('')}</div>`).join('');
+$('#vars').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b) build(+b.dataset.v); });
+
+/* ── opened states: click a card → the case study opens as Expand / Sheet / Takeover / Window ── */
+const OPEN_AS = [['expand', 'Expand'], ['sheet', 'Sheet'], ['takeover', 'Takeover'], ['window', 'Window']];
+let openAs = 'expand'; try { openAs = localStorage.getItem('proto-cases-open') || openAs; } catch {}
+$('#vars').insertAdjacentHTML('beforeend', `<div class="vrow" id="openRow"><span class="vlab">Opened state</span>${OPEN_AS.map(([k, n]) => `<button data-o="${k}">${n}</button>`).join('')}</div>`);
+const markOpenAs = () => $('#openRow').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.o === openAs));
+$('#openRow').addEventListener('click', e => { const b = e.target.closest('button[data-o]'); if (!b) return; openAs = b.dataset.o; markOpenAs(); try { localStorage.setItem('proto-cases-open', openAs); } catch {} });
+markOpenAs();
+
+const caseEl = $('#case'), scrim = $('#scrim');
+let openCard = null, closeTimer = 0;
+const caseHTML = (w, i) => {
+  const nx = WORKS[(i + 1) % WORKS.length];
+  return `<div class="case-in">
+    <header class="ch"><span class="meta-mono">${pad(i + 1)} / ${pad(WORKS.length)}</span>
+      <div><h2>${w.name}</h2><p>${w.summary}</p></div>
+      <div class="tail">${chips(w)}${visit(w)}<button class="close" aria-label="Close case study">×</button></div></header>
+    <div class="hero">${media(w, {noBadge: true})}</div>
+    <section class="cbody">
+      <dl class="facts">
+        <div><dt>Project</dt><dd>${w.summary}</dd></div>
+        <div><dt>Built with</dt><dd>${w.cats.join(', ')}</dd></div>
+        <div><dt>Live</dt><dd><a href="${w.link}" target="_blank" rel="noopener">${w.url} ↗</a></dd></div>
+      </dl>
+      <p class="overview">${w.text}</p>
+    </section>
+    <div class="gallery">
+      <figure><img src="${src(w.imgs[2], 1400)}" alt="" loading="lazy"></figure>
+      <figure><img src="${src(w.imgs[3], 700)}" alt="" loading="lazy"></figure>
+      <figure class="tall"><img src="${src(w.imgs[1], 1800)}" alt="${w.name} — full page" loading="lazy"></figure>
+    </div>
+    <div class="nextp" data-next="${(i + 1) % WORKS.length}"><span class="meta-mono">Next project</span><b>${nx.name} →</b></div>
+  </div>`;
+};
+// clip-path insets that make the opened page start exactly on the card's rectangle (Expand)
+function clipToCard(card) {
+  const r = card.getBoundingClientRect();
+  caseEl.style.setProperty('--ct', r.top + 'px'); caseEl.style.setProperty('--cl', r.left + 'px');
+  caseEl.style.setProperty('--cr', innerWidth - r.right + 'px'); caseEl.style.setProperty('--cb', innerHeight - r.bottom + 'px');
+}
+function openCase(i, card) {
+  clearTimeout(closeTimer);
+  track.querySelectorAll('.card.playing').forEach(stop);
+  openCard = card;
+  caseEl.innerHTML = caseHTML(WORKS[i], i);
+  caseEl.className = `case as-${openAs}`;
+  if (openAs === 'expand') clipToCard(card);
+  caseEl.scrollTop = 0;
+  caseEl.classList.add('on');
+  scrim.classList.toggle('on', openAs === 'sheet' || openAs === 'window');
+  $('#stage').classList.toggle('shifted', openAs === 'sheet');
+  void caseEl.offsetWidth;                                   // commit the start state so the transition runs
+  requestAnimationFrame(() => {
+    caseEl.classList.add('ready');
+    play(caseEl.querySelector('.hero'));
+    caseEl.querySelector('.close').focus({preventScroll: true});
+  });
+}
+function closeCase() {
+  if (!caseEl.classList.contains('on')) return;
+  if (openAs === 'expand' && openCard?.isConnected) clipToCard(openCard);   // shrink back onto the card
+  caseEl.classList.remove('ready');
+  scrim.classList.remove('on'); $('#stage').classList.remove('shifted');
+  const hero = caseEl.querySelector('.hero'); if (hero) stop(hero);
+  closeTimer = setTimeout(() => { caseEl.classList.remove('on'); caseEl.innerHTML = ''; }, 750);
+}
+caseEl.addEventListener('click', e => {
+  if (e.target.closest('.close')) return closeCase();
+  const nx = e.target.closest('.nextp');
+  if (nx) {                                                   // swap to the next project in place
+    const i = +nx.dataset.next, inEl = caseEl.querySelector('.case-in');
+    inEl.style.opacity = '0';
+    setTimeout(() => {
+      stop(caseEl.querySelector('.hero'));
+      caseEl.innerHTML = caseHTML(WORKS[i], i); caseEl.scrollTop = 0;
+      play(caseEl.querySelector('.hero'));
+    }, 300);
+  }
+});
+scrim.addEventListener('click', closeCase);
+
+// "near" = the card closest to centre (used for fades / filled titles); on touch it also auto-plays
+function markNear() {
+  const mid = track.scrollLeft + track.clientWidth / 2;
+  let best = null, bd = Infinity;
+  for (const c of track.children) { const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid); if (d < bd) { bd = d; best = c; } }
+  for (const c of track.children) {
+    c.classList.toggle('near', c === best);
+    if (TOUCH && c !== best && c.classList.contains('playing')) stop(c);
+  }
+  if (TOUCH && best && !RM) play(best);
+}
+let nearRaf = 0;
+track.addEventListener('scroll', () => { cancelAnimationFrame(nearRaf); nearRaf = requestAnimationFrame(markNear); }, {passive: true});
+
+/* ── input: drag, vertical wheel → horizontal, arrows, keys ── */
+let dragging = false, dx0 = 0, sl0 = 0, moved = 0;
+track.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; dragging = true; moved = 0; dx0 = e.clientX; sl0 = track.scrollLeft; track.classList.add('drag'); });
+addEventListener('pointermove', e => { if (!dragging) return; moved = Math.max(moved, Math.abs(e.clientX - dx0)); track.scrollLeft = sl0 - (e.clientX - dx0); });
+addEventListener('pointerup', () => { if (!dragging) return; dragging = false; track.classList.remove('drag'); snapTo(0); });
+track.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); track.scrollLeft += e.deltaY; } }, {passive: false});
+function snapTo(dir) {
+  const near = track.querySelector('.card.near'); if (!near) return;
+  const t = dir > 0 ? near.nextElementSibling : dir < 0 ? near.previousElementSibling : near;
+  if (t) track.scrollTo({left: t.offsetLeft + t.offsetWidth / 2 - track.clientWidth / 2, behavior: RM ? 'auto' : 'smooth'});
+}
+$('#prev').onclick = () => snapTo(-1); $('#next').onclick = () => snapTo(1);
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') return closeCase();
+  if (caseEl.classList.contains('on')) return;                 // carousel keys are off while a case study is open
+  if (e.key === 'ArrowRight') snapTo(1);
+  if (e.key === 'ArrowLeft') snapTo(-1);
+  if (/^[0-9]$/.test(e.key)) build(e.key === '0' ? 9 : +e.key - 1);
+});
+let start = 1;                                                 // Hairline — the chosen look
+try { const s = localStorage.getItem('proto-cases'); if (s !== null) start = +s; } catch {}
+build(start);
+</script>
+</body>
+</html>

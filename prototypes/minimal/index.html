@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fabrice Bokovi — Prototype · Minimal carousel</title>
 <link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css">
+<!-- local files load with a fresh ?v= each time: plain `python -m http.server` sends no cache headers and Chrome
+     otherwise keeps serving stale modules after they change (prototypes/serve.py fixes this server-side too) -->
+<script>window.BUST = '?v=' + Date.now(); document.write('<link rel="stylesheet" href="case-carousel.css' + BUST + '">');</script>
+<!-- typeface candidates (prototype panel → Typeface). Fontshare only downloads a font file once it's actually used. -->
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=chillax@400,500,600,700&f[]=pally@400,500,700&f[]=quicksand@400,500,600,700&f[]=outfit@400,500,600,700&f[]=epilogue@400,500,600,700&f[]=satoshi@400,500,700&f[]=general-sans@400,500,600,700&f[]=switzer@400,500,600,700&f[]=cabinet-grotesk@400,500,700&f[]=clash-grotesk@400,500,600,700&f[]=supreme@400,500,700&f[]=synonym@400,500,600,700&f[]=ranade@400,500,700&f[]=author@400,500,600,700&f[]=clash-display@400,500,600,700&f[]=boska@400,500,700&f[]=zodiak@400,700&f[]=erode@400,500,600,700&f[]=gambetta@400,500,600,700&f[]=bespoke-serif@400,500,600,700&display=swap">
 <style>
 @font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bd79c75cceb3db1a6_Helvetica.ttf);font-weight:400}
 @font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bbcffd89655079493_Helvetica-Bold.ttf);font-weight:700}
@@ -44,16 +49,23 @@ body.framed #site{inset:8vh 8vw;border-radius:10px;box-shadow:0 50px 100px -30px
 #glow{position:absolute;z-index:0;inset:var(--g-inset,10px);border-radius:var(--g-radius,22px);overflow:hidden;pointer-events:none;opacity:0;transition:opacity 1.2s ease}
 #glow.on{opacity:var(--g-opacity,1)}
 #glow canvas{display:block}
-/* The shader paints unmasked; a gradient "shade" in the page colour sits on top, clear in the middle and solid at
-   the edges — same look on a solid background. Perf history (integrated GPU, dpr 1.5): a CSS mask on the animating
-   layer ran ≈11 fps; a 2×-oversized CSS gradient moved by transform ≈15 fps (a ~19-megapixel layer per frame).
-   Now the shade is a tiny 2D canvas (~1/5 res) redrawn per frame and upscaled — a soft gradient upscales cleanly. */
+/* One layer: the glow shader also computes the spill edge (fade to the page colour) per pixel.
+   Perf history (integrated GPU, dpr 1.5): CSS mask on the animating layer ≈11 fps; 2×-oversized CSS gradient
+   moved by transform ≈15 fps; small 2D "shade" canvas over the glow ≈80–100 fps; now no second layer at all. */
 #glow .glow-inner{position:absolute;inset:0}
-#glow .glow-shade{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
 #pattern{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1s ease}
 #pattern.on{opacity:var(--p-opacity,.5)}
 #pattern canvas{display:block}
 #gl{z-index:1}
+/* case study open: the header fades out (the case has its own), the footer nav stays on top of it */
+.ui.top{transition:opacity .4s ease}
+body.case-open .ui.top{opacity:0;pointer-events:none}
+body.case-open .ui.top a,body.case-open .ui.top button{pointer-events:none}
+body.case-open .ui.bottom{z-index:6}
+#cases{--cc-top:190px;--cc-bottom:120px}                  /* the band between the intro header and the footer nav */
+#cases.off{display:none}
+/* rail layout sits on the right edge, where the prototype panel lives — park the panel just inside it */
+body.rail #proto{right:196px}
 #gl.off{display:none}                          /* carousel canvas removed entirely */
 #tweak{position:fixed;left:14px;bottom:14px;z-index:101;width:280px;max-height:calc(100vh - 28px);overflow:auto}
 #tweak.hide{display:none}
@@ -70,7 +82,7 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 
 .label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
 .intro b{display:block;font-weight:700;margin-bottom:8px}
-.intro p{max-width:35ch;color:var(--soft);margin-bottom:8px}
+.intro p{max-width:calc(35ch + 50px);color:var(--soft);margin-bottom:8px}
 .link{border-bottom:1px solid var(--faint);transition:border-color .2s}
 .link:hover{border-color:var(--fg)}
 .list{list-style:none;display:grid;gap:2px}
@@ -85,7 +97,9 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 .meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);line-height:1.55}
 .meta b{color:var(--fg);font-weight:400}
 .bl{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
-.mono-mark{width:34px;height:34px;border:1px solid var(--soft);border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:10px;letter-spacing:.02em}
+.dayclock{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--soft);transition:color .2s}
+.dayclock:hover,.dayclock[aria-pressed="true"]{color:var(--fg)}
+.dayclock:focus-visible{outline:1px solid var(--dim);outline-offset:2px}
 .bc{display:flex;flex-direction:column;align-items:center;gap:10px}
 .avail{display:flex;align-items:center;gap:7px}
 .avail i{width:6px;height:6px;border-radius:50%;background:#7bd88f;box-shadow:0 0 10px #7bd88f;animation:pulse 2.4s infinite}
@@ -226,8 +240,10 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 .center-note p{color:var(--dim)}
 
 /* ── prototype panel (not part of the design) ───────── */
-#proto{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:100;width:218px;background:rgba(246,246,243,.97);color:#111;border-radius:10px;font-family:var(--mono);font-size:10px;box-shadow:0 20px 50px -10px rgba(0,0,0,.5);transition:transform .5s var(--ease)}
-#proto header{display:flex;justify-content:space-between;align-items:center;padding:9px 10px 9px 12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+#proto{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:100;width:218px;
+  max-height:calc(100vh - 28px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;   /* taller than the screen now — scroll inside */background:rgba(246,246,243,.97);color:#111;border-radius:10px;font-family:var(--mono);font-size:10px;box-shadow:0 20px 50px -10px rgba(0,0,0,.5);transition:transform .5s var(--ease)}
+#proto header{display:flex;justify-content:space-between;align-items:center;padding:9px 10px 9px 12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  position:sticky;top:0;z-index:1;background:rgba(246,246,243,.97);border-radius:10px 10px 0 0}
 #proto header button{width:20px;height:20px;border-radius:5px;background:#e3e3df}
 #proto .pb{padding:0 12px 12px;display:flex;flex-direction:column;gap:6px}
 #proto.min .pb{display:none}
@@ -243,6 +259,13 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 #fps{position:fixed;right:14px;bottom:14px;z-index:100;font-family:var(--mono);font-size:10px;line-height:1.35;letter-spacing:.04em;
   padding:6px 9px;border-radius:6px;background:rgba(0,0,0,.72);color:#e8e8e3;pointer-events:none;font-variant-numeric:tabular-nums;white-space:pre}
 #fps.hide{display:none}
+#proto .fonts{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+#proto .fonts button{padding:6px 7px;border-radius:5px;background:#e7e7e3;text-align:left;font-size:12px;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#proto .fonts button:hover{background:#d9d9d4}
+#proto .fonts button.on{background:#111;color:#fff}
+#proto .fonts .sug{color:#666}
+#proto .fonts .sug.on{color:#fff}
+#proto .fontnow{font-size:9.5px;color:#444}
 #dayStrip{display:block;width:100%;height:46px;border-radius:5px;cursor:ew-resize;touch-action:none;background:#e7e7e3}
 #proto .todrow{display:flex;justify-content:space-between;align-items:center;gap:6px}
 #proto .todrow span{font-size:9.5px;color:#444}
@@ -256,9 +279,10 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 <body class="no-cols">
 
 <div id="site">
-  <div id="glow"><div class="glow-inner"></div><canvas class="glow-shade"></canvas></div>
+  <div id="glow"><div class="glow-inner"></div></div>
   <div id="pattern"></div>
   <canvas id="gl"></canvas>
+  <div id="cases"></div>   <!-- case-study carousel (case-carousel.js); its opened state is appended to #site -->
 
   <header class="ui top">
     <div class="intro" style="--d:0">
@@ -297,8 +321,7 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
 
   <footer class="ui bottom">
     <div class="bl" style="--d:5">
-      <div class="meta"><b id="clock">--:--:--</b><br>Central time — US</div>
-      <div class="mono-mark">F|B</div>
+      <div class="meta"><b id="clock">--:--:--</b><br>Pacific time — US</div>
     </div>
     <div class="bc" style="--d:6">
       <div class="meta avail"><i></i>Available for new projects</div>
@@ -313,13 +336,24 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
         </div>
       </nav>
     </div>
-    <div class="br"></div>   <!-- empty: keeps the pill centred in the 3-column footer -->
+    <div class="br" style="--d:7">
+      <!-- day-cycle clock: shows the glow's hour; click plays the full 24h colour cycle (time-of-day palette) -->
+      <button class="dayclock" id="dayClock" aria-pressed="false" aria-label="Play the 24-hour colour cycle" title="Play the day">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          <line id="clockH" x1="12" y1="12" x2="12" y2="7.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line id="clockM" x1="12" y1="12" x2="12" y2="4.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
   </footer>
 </div>
 
 <aside id="proto">
   <header><span>Prototype</span><button id="protoMin" title="Hide (P)">–</button></header>
   <div class="pb">
+    <span class="pl">Works layout</span>
+    <div class="seg" id="layoutSeg"><button data-l="rail" class="on">Rail</button><button data-l="carousel">Carousel</button></div>
     <span class="pl">Carousel material</span>
     <div class="seg" id="modeSeg">
       <button data-m="0" class="on">Glow</button><button data-m="1">Glass</button>
@@ -327,6 +361,12 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
     </div>
     <span class="pl">Look</span>
     <div class="jumps" id="lookList"></div>
+    <span class="pl">Body / UI font <span style="text-transform:none;letter-spacing:0">( [ ] cycle )</span></span>
+    <div class="fonts" id="fontList"></div>
+    <span class="pl">Heading font <span style="text-transform:none;letter-spacing:0">( { } cycle )</span></span>
+    <div class="fonts" id="headList"></div>
+    <button id="fontRand" class="probe">⟳ Randomize pairing (R)</button>
+    <span class="fontnow" id="fontNow"></span>
     <span class="pl">Time of day · Pacific</span>
     <canvas id="dayStrip" title="Click or drag to preview an hour"></canvas>
     <div class="todrow"><span id="todLabel">—</span><button id="todPlay">▶ Play a day</button></div>
@@ -342,8 +382,9 @@ body.no-cols .top .col{visibility:hidden;opacity:0}
     </div>
     <span class="pl">View</span>
     <button id="probeBtn" class="probe">Run perf probe (~15s)</button>
+    <label><input type="checkbox" id="lensT" checked> Mono lens cursor</label>
     <label><input type="checkbox" id="glowT" checked> Background glow</label>
-    <label><input type="checkbox" id="cardsT"> Show carousel</label>
+    <label><input type="checkbox" id="cardsT"> Old WebGL carousel</label>
     <label><input type="checkbox" id="colsT"> Header columns</label>
     <label><input type="checkbox" id="frameT"> Device frame (like ref)</label>
     <label><input type="checkbox" id="driftT" checked> Auto-drift</label>
@@ -664,7 +705,8 @@ canvas.addEventListener('pointerup', () => {
 });
 canvas.addEventListener('pointerleave', () => setHover(null));
 site.addEventListener('wheel', e => {
-  if (e.target.closest('.win')) return;
+  if (e.target.closest('.win, .cc-case')) return;              // windows and an open case study scroll natively
+  if (window.cases && !S.cards) return window.cases.wheel(e);  // case carousel: wheel moves it sideways
   e.preventDefault();
   S.target += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 0.9;
 }, {passive: false});
@@ -688,12 +730,13 @@ $('#worksList').innerHTML = WORKS.map((w, i) => `<li><a href="#" data-p="${i}"><
 $('#worksList').querySelectorAll('a').forEach(a => {
   const p = +a.dataset.p;
   a.addEventListener('mouseenter', () => {
+    if (window.cases && !S.cards) { window.cases.focus(p); markList(p); return; }   // case carousel: scroll to it
     const kc = Math.round(S.target / S.step);
     let best = kc; for (let k = kc - 2; k <= kc + 2; k++) if (mod(k, N) === p && Math.abs(k - kc) < Math.abs(best - kc) || mod(best, N) !== p) best = k;
     S.listK = best; S.target = best * S.step; markList(p);
   });
   a.addEventListener('mouseleave', () => { S.listK = null; markList(null); });
-  a.addEventListener('click', e => { e.preventDefault(); openProject(p); });
+  a.addEventListener('click', e => { e.preventDefault(); if (window.cases && !S.cards) window.cases.open(p); else openProject(p); });
 });
 
 /* ── windows ───────────────────────────────────────── */
@@ -802,7 +845,7 @@ function renderProject(win) {
 
 /* other windows */
 const OPEN = {
-  home: closeAll,
+  home: () => { closeAll(); window.cases?.close(); },        // "Work" returns to the carousel
   project: () => openProject(mod(nearestK(), N)),
   about: () => openWin('about', {title: 'About', meta: 'A thing or two about myself', w: 900, h: 560, build: w => {
     w.body.innerHTML = `<div class="about">
@@ -852,16 +895,21 @@ addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
   const t = topWin();
   if (e.key === 'Escape' && t) closeWin(t);
+  else if (e.key === 'Escape' && window.cases?.isOpen) window.cases.close();
   if (e.key.toLowerCase() === 'p') $('#proto').classList.toggle('min');
   if (e.key.toLowerCase() === 'g') $('#tweak').classList.toggle('hide');
   if (e.key.toLowerCase() === 'f') $('#fps').classList.toggle('hide');
+  if (!t && window.cases?.rail && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault(); if (!window.cases.isOpen) window.cases.step(e.key === 'ArrowDown' ? 1 : -1);
+  }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     const dir = e.key === 'ArrowRight' ? 1 : -1;
     if (t && t.id === 'project') {
       const st = t.st; st.dir = dir;
       if (st.mode === 'stage') { st.p = mod(st.p + dir, N); st.img = 0; } else st.img = mod(st.img + dir, WORKS[st.p].imgs.length);
       renderProject(t);
-    } else if (!t) S.target = (nearestK() + dir) * S.step;
+    } else if (!t && window.cases && !S.cards) { if (window.cases.isOpen) window.cases.shift(dir); else window.cases.step(dir); }
+    else if (!t) S.target = (nearestK() + dir) * S.step;
   }
 });
 
@@ -884,7 +932,7 @@ addEventListener('keydown', e => {
 })();
 
 /* ── small chrome bits ─────────────────────────────── */
-const fmt = new Intl.DateTimeFormat('en-US', {timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true});
+const fmt = new Intl.DateTimeFormat('en-US', {timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true});
 const tick = () => $('#clock').textContent = fmt.format(new Date()); tick(); setInterval(tick, 1000);
 
 /* ── prototype panel ───────────────────────────────── */
@@ -896,13 +944,67 @@ $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('butto
 $('#protoMin').onclick = () => $('#proto').classList.toggle('min');
 $('#colsT').onchange = e => document.body.classList.toggle('no-cols', !e.target.checked);
 $('#frameT').onchange = e => document.body.classList.toggle('framed', e.target.checked);
-$('#driftT').onchange = e => S.drift = e.target.checked;
+$('#driftT').onchange = e => { S.drift = e.target.checked; window.cases?.setDrift(S.drift); };
 function setCards(on) {
   S.cards = on; canvas.classList.toggle('off', !on);
+  document.getElementById('cases')?.classList.toggle('off', on);   // the old WebGL carousel replaces the case carousel
+  if (on) window.cases?.close();
   if (!on) setHover(null);
   else if (!looping) { last = performance.now(); looping = true; requestAnimationFrame(frame); }
 }
 $('#cardsT').onchange = e => setCards(e.target.checked);
+
+/* typeface trial: body/UI font → --sans, heading font → --display (window titles, process steps, contact).
+   Entries: [label, CSS family, 1 = my suggestion (greyed)]. All served by the Fontshare stylesheet in <head>. */
+const FONTS = [
+  ['Original', '"aktiv-grotesk"'],
+  ['Chillax', '"Chillax"'], ['Pally', '"Pally"'], ['Quicksand', '"Quicksand"'], ['Outfit', '"Outfit"'], ['Epilogue', '"Epilogue"'],
+  ['Satoshi', '"Satoshi"', 1], ['General Sans', '"General Sans"', 1], ['Switzer', '"Switzer"', 1],
+  ['Supreme', '"Supreme"', 1], ['Synonym', '"Synonym"', 1], ['Ranade', '"Ranade"', 1], ['Author', '"Author"', 1],
+];
+const HEADS = [
+  ['Original', null], ['Same as body', 'same'],
+  ['Chillax', '"Chillax"'], ['Pally', '"Pally"'], ['Outfit', '"Outfit"'], ['Epilogue', '"Epilogue"'],
+  ['Clash Display', '"Clash Display"', 1], ['Clash Grotesk', '"Clash Grotesk"', 1], ['Cabinet Grotesk', '"Cabinet Grotesk"', 1],
+  ['Boska', '"Boska"', 1], ['Zodiak', '"Zodiak"', 1], ['Erode', '"Erode"', 1], ['Gambetta', '"Gambetta"', 1], ['Bespoke Serif', '"Bespoke Serif"', 1],
+];
+const FONT_KEY = 'proto-font-v2';
+const fontState = {b: 0, h: 0};
+try { Object.assign(fontState, JSON.parse(localStorage.getItem(FONT_KEY) || '{}')); } catch {}
+const fontBtns = (list, attr) => list.map(([n, fam, sug], i) =>
+  `<button data-${attr}="${i}" class="${sug ? 'sug' : ''}" style="font-family:${(fam && fam !== 'same' ? fam : 'inherit').replace(/"/g, "'")},sans-serif" title="${sug ? 'Suggestion' : 'Your pick'}">${n}</button>`).join('');
+$('#fontList').innerHTML = fontBtns(FONTS, 'b');
+$('#headList').innerHTML = fontBtns(HEADS, 'h');
+function applyFonts() {
+  const nb = FONTS.length, nh = HEADS.length;
+  fontState.b = (fontState.b + nb) % nb; fontState.h = (fontState.h + nh) % nh;
+  const body = FONTS[fontState.b], head = HEADS[fontState.h], root = document.documentElement.style;
+  root.setProperty('--sans', `${body[1]},"Helv",Helvetica,Arial,sans-serif`);
+  const hf = head[1] === 'same' ? body[1] : head[1];
+  if (hf) root.setProperty('--display', `${hf},serif`); else root.removeProperty('--display');
+  $('#fontList').querySelectorAll('button').forEach((x, k) => x.classList.toggle('on', k === fontState.b));
+  $('#headList').querySelectorAll('button').forEach((x, k) => x.classList.toggle('on', k === fontState.h));
+  $('#fontNow').textContent = `${head[1] === 'same' ? body[0] : head[1] ? head[0] : 'GreatLakes'} headings · ${body[0] === 'Original' ? 'aktiv-grotesk' : body[0]} body`;
+  try { localStorage.setItem(FONT_KEY, JSON.stringify(fontState)); } catch {}
+  requestAnimationFrame(() => typeof layout === 'function' && layout());   // widths changed — re-measure (carousel caption etc.)
+}
+// randomize: any non-original body + a heading that isn't "Original" (so the pairing is always new), never the same as now
+function randomFonts() {
+  const pick = (n, from, cur) => { let k; do k = from + Math.floor(Math.random() * (n - from)); while (k === cur && n - from > 1); return k; };
+  fontState.b = pick(FONTS.length, 1, fontState.b);
+  fontState.h = pick(HEADS.length, 1, fontState.h);
+  applyFonts();
+}
+$('#fontList').addEventListener('click', e => { const x = e.target.closest('button'); if (x) { fontState.b = +x.dataset.b; applyFonts(); } });
+$('#headList').addEventListener('click', e => { const x = e.target.closest('button'); if (x) { fontState.h = +x.dataset.h; applyFonts(); } });
+$('#fontRand').onclick = randomFonts;
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === '[' || e.key === ']') { fontState.b += e.key === ']' ? 1 : -1; applyFonts(); }
+  if (e.key === '{' || e.key === '}') { fontState.h += e.key === '}' ? 1 : -1; applyFonts(); }
+  if (e.key.toLowerCase() === 'r') randomFonts();
+});
+applyFonts();
 setCards(S.cards);
 function jump(j) {
   if (j === 'home') return closeAll();
@@ -925,9 +1027,40 @@ if (q.get('screen')) setTimeout(() => jump(q.get('screen')), 900);
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script type="module">
 /* sticky nav: the approved "Drip · pass-through" droplet indicator (tuned in nav.html) */
-import {DripNav, DRIP_SETTINGS} from './dripnav.js';
+const {DripNav, DRIP_SETTINGS} = await import('./dripnav.js' + window.BUST);
 window.dripNav = new DripNav(document.querySelector('#navPill .pipenav'), DRIP_SETTINGS);
 syncNav();   // in case a deep link already opened a window before the nav existed
+</script>
+
+<script type="module">
+/* case studies: the approved "Hairline" carousel + "Expand" opened state (tuned in cases.html) */
+const {CaseCarousel} = await import('./case-carousel.js' + window.BUST);
+const {MonoLens} = await import('./mono-cursor.js' + window.BUST);
+window.lens = new MonoLens();                                 // "Mono lens" from the cursor lab (cursors.html #2)
+document.getElementById('lensT').onchange = e => window.lens.enable(e.target.checked);
+let glowTimer = 0;
+window.cases = new CaseCarousel({
+  root: document.getElementById('cases'), overlayHost: document.getElementById('site'), works: WORKS, src, layout: 'rail',
+  onOpen() {
+    document.body.classList.add('case-open'); syncNav();
+    clearTimeout(glowTimer);                                   // the glow is fully covered — pause it to save GPU
+    glowTimer = setTimeout(() => window.glow?.mount.setSpeed(0), 800);
+  },
+  onClose() {
+    document.body.classList.remove('case-open');
+    clearTimeout(glowTimer);
+    const g = window.glow; if (g) g.mount.setSpeed(g.P.enabled && !matchMedia('(prefers-reduced-motion: reduce)').matches ? g.P.speed : 0);
+  },
+});
+if (S.cards) document.getElementById('cases').classList.add('off');
+window.cases.setDrift(S.drift);                              // follows the prototype panel's Auto-drift
+document.body.classList.add('rail');
+document.getElementById('layoutSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  window.cases.setLayout(b.dataset.l);
+  document.body.classList.toggle('rail', b.dataset.l === 'rail');
+  b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+});
 </script>
 
 <script type="module">
@@ -960,21 +1093,21 @@ const LOOKS = [
 const DEFAULTS = {
   enabled: true,
   // look
-  look: 'mono-dark', palette: 'custom',
-  pattern: 'none', pOpacity: 0.35, pScale: 1, pSpeed: 0.4,
+  look: 'mono-dark', palette: 'time',
+  pattern: 'none', pOpacity: 0.17, pScale: 1.16, pSpeed: 0.4,
   // spill shape
-  width: 106, reach: 200, top: 0, core: 25, falloff: 3.75, opacity: 1,
+  width: 106, reach: 200, top: 0, core: 24, falloff: 3.75, opacity: 1,
   // edge motion
-  breathe: 0.07, sway: 3.5, edgeSpeed: 1.37,
+  breathe: 0.3, sway: 12.5, edgeSpeed: 0.5,
   // frame
   inset: 9, radius: 23,
   // shader
   c1: '#ff7a1a', c2: '#f2541b', c3: '#ff9d5c', c4: '#a3240e', c5: '#140604',
-  speed: 0.35, distortion: 0.8, swirl: 0.3, grainMixer: 0, grainOverlay: 0.06,
-  scale: 1, rotation: 0, offsetX: 0, offsetY: -0.15,
+  speed: 0.35, distortion: 0.8, swirl: 0.3, grainMixer: 0.06, grainOverlay: 0.05,
+  scale: 0.96, rotation: 0, offsetX: 0, offsetY: -0.15,
   // performance: render scale of the glow shader (it's a soft blur — 0.5 is visually identical at a quarter of the pixels)
   res: 0.5,
-  // time of day (palette 'time'): glow colours follow the clock in Pacific time
+  // time of day (palette 'time'): glow colours follow the clock in US Pacific time (same zone as the footer clock)
   todLive: true, todHour: 16, todBlend: 1.5, daySecs: 30,
   tod: [   // h = hour the phase is fully in; colours: 4 glow tones + the dark base the mesh flows into
     {name: 'Night',     h: 0,    c: ['#2b3f9e', '#16246b', '#4a66c9', '#0b1238', '#04060f']},
@@ -1028,8 +1161,50 @@ let playHour = null;                                     // set while "Play a da
 let todReady = false;                                    // the panel/strip below are built after apply() is defined
 const todHourNow = () => playHour ?? (P.todLive ? ptHour() : P.todHour);
 
-const el = document.getElementById('glow'), inner = el.querySelector('.glow-inner'), shade = el.querySelector('.glow-shade');
+const el = document.getElementById('glow'), inner = el.querySelector('.glow-inner');
 const RM = matchMedia('(prefers-reduced-motion: reduce)');   // reduced motion: hold the glow still
+
+/* The spill edge ("shade") is computed inside the glow shader itself: per pixel, distance from an ellipse centred
+   above the top edge → falloff curve → blend toward the page colour. One full-screen layer instead of two, and no
+   per-frame canvas redraw/upload. Breathe/sway arrive as uniforms. We patch Paper's mesh-gradient source (pinned
+   to 0.0.81) at its final output line. */
+const SHADE_GLSL_UNIFORMS = `
+uniform vec2 u_resolution;
+uniform vec3 u_shadeColor;
+uniform vec2 u_shadeCenter;
+uniform vec2 u_shadeRadii;
+uniform float u_shadeCore;
+uniform float u_shadeFalloff;
+uniform float u_shadeOn;
+`;
+const SHADE_GLSL_OUT = `
+  vec3 glowOverBg = mix(u_shadeColor, color, opacity);
+  vec2 sp = vec2(gl_FragCoord.x / u_resolution.x, 1. - gl_FragCoord.y / u_resolution.y);
+  float sd = length((sp - u_shadeCenter) / u_shadeRadii);
+  float su = clamp((sd - u_shadeCore) / max(1e-3, 1. - u_shadeCore), 0., 1.);
+  float sa = mix(1., pow(1. - su * su * (3. - 2. * su), u_shadeFalloff), u_shadeOn);
+  fragColor = vec4(mix(u_shadeColor, glowOverBg, sa), 1.);
+}`;
+const OUT_LINE = 'fragColor = vec4(color, opacity);\n}', UNI_LINE = 'uniform float u_grainOverlay;';
+if (!meshGradientFragmentShader.includes(OUT_LINE) || !meshGradientFragmentShader.includes(UNI_LINE))
+  console.error('glow: Paper mesh-gradient source changed — spill-edge patch did not apply');
+const glowFragmentShader = meshGradientFragmentShader
+  .replace(UNI_LINE, UNI_LINE + SHADE_GLSL_UNIFORMS)
+  .replace(OUT_LINE, SHADE_GLSL_OUT);
+
+const smooth = t => t * t * (3 - 2 * t);
+let shadeBg = [0.02, 0.02, 0.02], shadeOn = 1;
+/** spill-edge uniforms at edge-motion time t (frame-relative units, y measured from the top) */
+function shadeUniforms(t) {
+  const moving = P.enabled && !RM.matches, b = P.breathe;
+  const sx = moving ? 1 + b * Math.sin(t * 0.41) : 1, sy = moving ? 1 + b * 0.8 * Math.sin(t * 0.29 + 1.3) : 1;
+  return {
+    u_shadeColor: shadeBg, u_shadeOn: shadeOn,
+    u_shadeCenter: [0.5 + (moving ? P.sway * Math.sin(t * 0.23) : 0) / 100, P.top / 100],
+    u_shadeRadii: [Math.max(0.01, P.width / 100 * sx), Math.max(0.01, P.reach / 100 * sy)],
+    u_shadeCore: P.core / 100, u_shadeFalloff: P.falloff,
+  };
+}
 const colors = () => P.palette === 'time'
   ? todColors(todHourNow()).map(([r, g, b]) => [r, g, b, 1])
   : (PALETTES[P.palette] || [P.c1, P.c2, P.c3, P.c4, P.c5]).map(getShaderColorFromString);
@@ -1038,6 +1213,7 @@ const uniforms = () => ({
   u_distortion: P.distortion, u_swirl: P.swirl, u_grainMixer: P.grainMixer, u_grainOverlay: P.grainOverlay,
   u_fit: ShaderFitOptions.cover, u_scale: P.scale, u_rotation: P.rotation,
   u_originX: 0.5, u_originY: 0.5, u_offsetX: P.offsetX, u_offsetY: P.offsetY, u_worldWidth: 0, u_worldHeight: 0,
+  ...shadeUniforms(edgeT),
 });
 /* Performance: the glow is a soft gradient, so it renders below native resolution. Paper's pixel-count cap is
    the only lever that goes under 1× (its min pixel ratio is a floor), so derive the cap from the layer's size. */
@@ -1046,7 +1222,8 @@ const pixelCap = () => {
   return Math.max(64 * 64, Math.round(inner.offsetWidth * inner.offsetHeight * dpr * dpr * r * r));
 };
 const speedNow = () => (P.enabled && !RM.matches ? P.speed : 0);
-const mount = new ShaderMount(inner, meshGradientFragmentShader, uniforms(), undefined, speedNow(), 0, 1, pixelCap());
+let edgeT = 0;                                           // edge-motion clock (breathe / sway phase)
+const mount = new ShaderMount(inner, glowFragmentShader, uniforms(), undefined, speedNow(), 0, 1, pixelCap());
 new ResizeObserver(() => mount.setMaxPixelCount(pixelCap())).observe(inner);
 window.glow = {P, DEFAULTS, mount};   // for poking at it from the console
 
@@ -1059,41 +1236,11 @@ function setEnabled(on) {
   else { el.classList.remove('on'); offTimer = setTimeout(() => mount.setSpeed(0), 1200); }
 }
 
-/* shade: the inverse of the old mask — an ellipse centred above the top edge, clear inside and easing to the page
-   colour, so the glow appears to spill from the top with no visible rim. Drawn into a small canvas; breathe/sway
-   are applied while drawing (no CSS transforms). */
-const smooth = t => t * t * (3 - 2 * t);
-const SHADE_RES = 0.2;                                   // fraction of CSS size — plenty for a soft gradient
-const sctx = shade.getContext('2d');
-let shadeStops = [], shadeRGB = '5,5,5';
-function sizeShade() {
-  const w = Math.max(32, Math.round(el.clientWidth * SHADE_RES)), h = Math.max(32, Math.round(el.clientHeight * SHADE_RES));
-  if (shade.width !== w || shade.height !== h) { shade.width = w; shade.height = h; }
-}
-new ResizeObserver(() => { sizeShade(); drawShade(edgeT); }).observe(el);
+/* re-read the page colour (theme) and push the spill-edge settings; called on any settings or theme change */
 function applyMask() {
-  // the page colour as r,g,b (canvas normalises any CSS colour string to #rrggbb)
-  sctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim() || '#050505';
-  const hex = sctx.fillStyle; shadeRGB = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
-  shadeStops = [];
-  for (let i = 0; i <= 12; i++) {
-    const u = i / 12, a = Math.pow(1 - smooth(u), P.falloff);           // a = how much glow shows through
-    shadeStops.push([(P.core + (100 - P.core) * u) / 100, 1 - a]);
-  }
-  sizeShade(); drawShade(edgeT);
-}
-function drawShade(t) {
-  const W = shade.width, H = shade.height, b = P.breathe;
-  const moving = P.enabled && !RM.matches;
-  const sx = moving ? 1 + b * Math.sin(t * 0.41) : 1, sy = moving ? 1 + b * 0.8 * Math.sin(t * 0.29 + 1.3) : 1;
-  const cx = W * (50 + (moving ? P.sway * Math.sin(t * 0.23) : 0)) / 100, cy = H * P.top / 100;
-  const rx = Math.max(1, W * P.width / 100 * sx), ry = Math.max(1, H * P.reach / 100 * sy);
-  sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.clearRect(0, 0, W, H);
-  sctx.translate(cx, cy); sctx.scale(1, ry / rx);                    // circle → ellipse
-  const g = sctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-  for (const [pos, alpha] of shadeStops) g.addColorStop(Math.min(1, pos), `rgba(${shadeRGB},${alpha.toFixed(3)})`);
-  sctx.fillStyle = g;                                                // beyond the radius the last stop (solid page colour) extends
-  sctx.fillRect(-cx - 2, -cy * rx / ry - 2, W + 4, H * rx / ry + 4);
+  const bg = getComputedStyle(document.body).getPropertyValue('--bg').trim() || '#050505';
+  shadeBg = getShaderColorFromString(bg).slice(0, 3);
+  mount.setUniforms(shadeUniforms(edgeT));
 }
 function applyFrame() {
   el.style.setProperty('--g-inset', P.inset + 'px');
@@ -1101,13 +1248,13 @@ function applyFrame() {
   el.style.setProperty('--g-opacity', P.opacity);
 }
 
-// edge motion: breathe + sway as a compositor-only transform; the loop only runs while there's something to move
-let edgeT = 0, lastNow = 0, edgesRunning = false;
+// edge motion: breathe + sway are just uniform updates — the shader is redrawing every frame anyway, so this is free
+let lastNow = 0, edgesRunning = false;
 function edges(now) {
-  if (!P.enabled || RM.matches || (!P.breathe && !P.sway) || !P.edgeSpeed) { edgesRunning = false; drawShade(edgeT); return; }
+  if (!P.enabled || RM.matches || (!P.breathe && !P.sway) || !P.edgeSpeed) { edgesRunning = false; mount.setUniforms(shadeUniforms(edgeT)); return; }
   const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0; lastNow = now;
   edgeT += dt * P.edgeSpeed * 2.5;
-  drawShade(edgeT);
+  mount.setUniforms(shadeUniforms(edgeT));
   requestAnimationFrame(edges);
 }
 function startEdges() { if (!edgesRunning) { edgesRunning = true; lastNow = 0; requestAnimationFrame(edges); } }
@@ -1130,6 +1277,7 @@ const PATTERNS = {
 let pMount = null, pKind = null;
 function applyLook() {
   if (P.look === 'ember') delete document.body.dataset.look; else document.body.dataset.look = P.look;
+  applyMask();                 // the spill edge blends to the page colour, which the theme just changed
   pEl.style.setProperty('--p-opacity', P.pOpacity);
   const def = PATTERNS[P.pattern];
   if (!def) {                  // no pattern: fade out, then release its WebGL context entirely
@@ -1267,7 +1415,17 @@ function showTod() {
   todState.now = `${what} · ${fmtH(h)} ${src}`;
   document.getElementById('todLabel').textContent = `${fmtH(h)} · ${what}`;
   refreshing = true; try { fT.refresh(); } finally { refreshing = false; }
-  drawStrip();
+  drawStrip(); setClockHands(h);
+}
+
+/* user-facing day clock (bottom right): hands show the hour the glow is showing; while a day plays they sweep
+   clockwise in step with it — the hour hand goes round twice (24h on a 12h dial), the minute hand once per hour */
+const clockH = document.getElementById('clockH'), clockM = document.getElementById('clockM');
+const dayClock = document.getElementById('dayClock');
+function setClockHands(h) {
+  h = ((h % 24) + 24) % 24;
+  clockH.setAttribute('transform', `rotate(${((h % 12) / 12 * 360).toFixed(2)} 12 12)`);
+  clockM.setAttribute('transform', `rotate(${((h % 1) * 360).toFixed(2)} 12 12)`);
 }
 function pushTod() { if (P.palette === 'time') mount.setUniforms({u_colors: colors()}); showTod(); }
 
@@ -1286,12 +1444,17 @@ strip.addEventListener('pointerup', () => { dragging = false; });
 // play a whole day from the current hour in `daySecs` seconds
 const playBtn = document.getElementById('todPlay');
 let playRaf = 0;
-function stopPlay() { if (playHour === null) return; cancelAnimationFrame(playRaf); playHour = null; playBtn.textContent = '▶ Play a day'; playBtn.classList.remove('on'); pushTod(); }
+function stopPlay() {
+  if (playHour === null) return;
+  cancelAnimationFrame(playRaf); playHour = null;
+  playBtn.textContent = '▶ Play a day'; playBtn.classList.remove('on'); dayClock.setAttribute('aria-pressed', 'false');
+  pushTod();
+}
 playBtn.onclick = () => {
   if (playHour !== null) return stopPlay();
   if (P.palette !== 'time') { P.palette = 'time'; pane.refresh(); apply(); }
   const from = todHourNow(), t0 = performance.now();
-  playBtn.textContent = '■ Stop'; playBtn.classList.add('on');
+  playBtn.textContent = '■ Stop'; playBtn.classList.add('on'); dayClock.setAttribute('aria-pressed', 'true');
   const step = now => {
     const k = (now - t0) / 1000 / P.daySecs;
     if (k >= 1) return stopPlay();
@@ -1301,6 +1464,7 @@ playBtn.onclick = () => {
   playRaf = requestAnimationFrame(step);
 };
 
+dayClock.onclick = () => playBtn.onclick();                        // same playback as the prototype panel's button
 setInterval(() => { if (playHour === null) pushTod(); }, 20000);   // live clock: re-evaluate every 20s (transitions take hours)
 new ResizeObserver(drawStrip).observe(strip);
 todReady = true;
@@ -1317,8 +1481,8 @@ const navSvg = () => document.querySelector('#navPill svg');
 const STEPS = [
   ['everything on (as is)',  () => {}],
   ['glow shader frozen',     () => mount.setSpeed(0)],
-  ['+ edge motion off',      () => { P.enabled = false; }],   // stops the edges loop only (the shade holds still)
-  ['+ glow shade off',       () => { shade.style.display = 'none'; }],
+  ['+ edge motion off',      () => { P.enabled = false; }],   // stops the edges loop only (the edge holds still)
+  ['+ spill edge off',       () => { shadeOn = 0; mount.setUniforms({u_shadeOn: 0}); }],
   ['+ glow layer hidden',    () => { el.style.display = 'none'; }],
   ['+ nav svg hidden',       () => { const s = navSvg(); if (s) s.style.display = 'none'; }],
   ['+ text/ui hidden',       () => document.querySelectorAll('#site > .ui').forEach(u => u.style.visibility = 'hidden')],
@@ -1335,7 +1499,7 @@ document.getElementById('probeBtn').onclick = async e => {
     out.textContent = rows.join('\n') + '\n…';
   }
   // restore
-  el.style.display = ''; shade.style.display = ''; const s = navSvg(); if (s) s.style.display = '';
+  el.style.display = ''; shadeOn = 1; const s = navSvg(); if (s) s.style.display = '';
   document.querySelectorAll('#site > .ui').forEach(u => u.style.visibility = '');
   Object.assign(P, snap); applyMask(); setEnabled(P.enabled);
   out.textContent = rows.join('\n') + '\n(done — copy these numbers)';

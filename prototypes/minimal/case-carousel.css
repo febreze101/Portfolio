@@ -1,0 +1,143 @@
+/* CaseCarousel (case-carousel.js) — "Hairline" cards + "Expand" opened state.
+   Uses the page's theme tokens (--bg --fg --soft --dim --faint --line --mono --ease), so it follows every look. */
+
+/* the band between the header and the footer; the card is sized so frame + caption always fit in it */
+.cc{position:absolute;left:0;right:0;top:var(--cc-top,150px);bottom:var(--cc-bottom,104px);z-index:1;
+  --cc-w:min(58vw,900px,calc((100vh - var(--cc-top,150px) - var(--cc-bottom,104px) - 110px) * 1.6 + 26px))}
+.cc-track{display:flex;align-items:center;gap:44px;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+  scrollbar-width:none;padding:0 calc(50% - var(--cc-w) / 2);cursor:grab;overscroll-behavior-x:contain}
+.cc-track::-webkit-scrollbar{display:none}
+.cc-track.drag{cursor:grabbing;scroll-snap-type:none}
+.cc-track.drifting{scroll-snap-type:none}             /* snapping would fight the slow idle drift */
+
+/* Hairline card: one rounded 1px border around frame + caption; neighbours fade back; brightens while playing */
+.cc-card{flex:none;width:var(--cc-w);scroll-snap-align:center;position:relative;user-select:none;cursor:pointer;
+  border:1px solid var(--line);border-radius:10px;padding:12px;opacity:.4;transition:opacity .6s ease,border-color .5s ease}
+.cc-card.near{opacity:1}
+.cc-card.playing{border-color:var(--soft)}
+.cc-card img{pointer-events:none}
+
+.cc-media{position:relative;overflow:hidden;background:#111;aspect-ratio:16/10;border-radius:5px}
+.cc-media .cc-cover,.cc-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.cc-media .cc-cover{transition:opacity .5s ease,transform 1.4s var(--ease)}
+.cc-media .cc-page{position:absolute;left:0;top:0;width:100%;height:auto;opacity:0;will-change:transform;transition:opacity .45s ease}
+.cc-media video{opacity:0;transition:opacity .4s ease}
+.playing .cc-media .cc-page,.playing .cc-media video{opacity:1}
+.playing .cc-media .cc-cover{opacity:0;transform:scale(1.04)}
+.cc-badge{position:absolute;right:12px;bottom:12px;z-index:3;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 9px;border-radius:999px;background:rgba(0,0,0,.55);color:#eee;transition:opacity .3s}
+.playing .cc-badge{opacity:0}
+
+.cc-mono{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.cc-chips{display:flex;gap:4px;flex-wrap:wrap}
+.cc-chips span{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);border:1px solid var(--line);border-radius:2px;padding:3px 6px}
+.cc-cap{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:baseline;margin-top:12px;padding:12px 4px 2px;border-top:1px solid var(--line)}
+.cc-cap h3{font-size:20px;font-weight:500;letter-spacing:-.01em}
+.cc-cap p{color:var(--dim);font-size:13px;margin-top:3px}
+.cc-tail{display:flex;gap:10px;align-items:center}
+
+/* "open full site" link (arrow out of a box) */
+.cc-visit{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:6px;color:var(--soft);
+  transition:color .2s,border-color .2s,background .2s;pointer-events:auto}
+.cc-visit:hover{color:var(--bg);background:var(--fg);border-color:var(--fg)}
+.cc-visit svg{width:15px;height:15px}
+
+/* ── Expand: opened case study grows out of the card (clip-path), then content rises in ── */
+.cc-case{position:absolute;inset:0;z-index:5;background:var(--bg);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;visibility:hidden;
+  clip-path:inset(var(--ct,40%) var(--cr,40%) var(--cb,40%) var(--cl,40%) round 10px);transition:clip-path .75s var(--ease)}
+.cc-case.on{visibility:visible}
+.cc-case.ready{clip-path:inset(0 round 0)}
+.cc-in{max-width:1100px;margin:0 auto;padding:26px 30px 140px;opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .7s var(--ease)}
+.cc-case.ready .cc-in{opacity:1;transform:none}
+/* case layout: label + serif headline + fact columns, then a bordered panel (scrolling left column, pinned visual) */
+.cc-case{--case-serif:"Gambetta","Zodiak",Georgia,serif}
+/* one screen: the page itself never scrolls (bottom padding clears the site's footer nav) */
+.cc-case{overflow:hidden}
+.cc-in{max-width:none;height:100%;padding:28px clamp(20px,4.2vw,72px) 92px;display:flex;flex-direction:column}
+.cc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:clamp(10px,2vh,22px);flex:none}
+.cc-label{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--soft)}
+.cc-label i{width:7px;height:7px;border-radius:50%;background:#e8743b}
+.cc-close{width:30px;height:30px;border:1px solid var(--line);border-radius:6px;color:var(--soft);font-size:16px;line-height:1}
+.cc-close:hover{border-color:var(--fg);color:var(--fg)}
+.cc-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:start;margin-bottom:clamp(20px,4.5vh,48px);flex:none}
+.cc-head h2{font-family:var(--case-serif);font-weight:400;font-size:clamp(34px,min(4.4vw,7vh),64px);line-height:1.08;letter-spacing:-.01em;max-width:12ch}
+.cc-facts{display:grid;grid-template-columns:repeat(3,minmax(140px,190px))}
+.cc-fact{display:flex;flex-direction:column;gap:6px;padding:4px 20px;border-left:1px solid var(--line);font-size:13px}
+.cc-fact svg{width:16px;height:16px;color:var(--soft);margin-bottom:12px}
+.cc-fact b{font-weight:500}
+.cc-fact span{color:var(--dim);line-height:1.45}
+.cc-fact a,.cc-link{border-bottom:1px solid var(--faint);white-space:nowrap}
+.cc-fact a:hover,.cc-link:hover{border-color:var(--fg)}
+
+.cc-panel{flex:1;min-height:0;display:grid;grid-template-columns:minmax(260px,.62fr) minmax(0,1.6fr);gap:40px;align-items:stretch;
+  border:1px solid var(--line);border-radius:14px;padding:22px}
+.cc-left{padding:6px 4px 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 60px),transparent);mask-image:linear-gradient(#000 calc(100% - 60px),transparent)}
+.cc-left::-webkit-scrollbar{display:none}
+.cc-left h3{display:flex;align-items:center;gap:12px;font-size:28px;font-weight:400;letter-spacing:-.01em}
+.cc-left h3 svg{width:20px;height:20px;color:#e8743b;flex:none}
+.cc-lede{color:var(--dim);font-size:15px;line-height:1.55;margin:14px 0 26px;max-width:36ch}
+.cc-btn{display:inline-block;padding:9px 16px;border:1px solid var(--line);border-radius:999px;font-size:13px;transition:background .2s,color .2s,border-color .2s}
+.cc-btn:hover{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+/* each section is tall enough to scroll through; the last one leaves room to become active */
+.cc-steps{margin-top:clamp(40px,12vh,140px);padding-bottom:28vh}
+.cc-step{position:relative;min-height:34vh;padding:22px 0;border-top:1px solid var(--line)}
+.cc-step::before{content:"";position:absolute;left:0;top:-1px;height:1px;width:calc(var(--p,0) * 100%);background:var(--fg)}
+.cc-step b{display:block;font-size:15px;font-weight:500;color:var(--dim);transition:color .4s}
+.cc-sbody{margin-top:12px;opacity:.35;transition:opacity .5s}
+.cc-sbody p{color:var(--soft);font-size:14px;line-height:1.6;max-width:44ch;margin-bottom:12px}
+.cc-sbody .cc-chips{margin-bottom:14px}
+.cc-step.on b{color:var(--fg)}
+.cc-step.on .cc-sbody{opacity:1}
+
+/* pinned visual: blurred backdrop + "windows" that crossfade with the active section */
+.cc-right{position:relative;min-height:0;container-type:size;border-radius:8px;overflow:hidden;background:#0c0c0c}
+.cc-bd{position:absolute;inset:-30px;background-size:cover;background-position:center top;filter:blur(26px) saturate(1.1) brightness(.55);transform:scale(1.1)}
+.cc-shot{position:absolute;inset:0;display:grid;place-items:center;padding:7%;opacity:0;transform:translateY(16px) scale(.985);
+  transition:opacity .6s ease,transform .8s var(--ease);pointer-events:none}
+.cc-shot.on{opacity:1;transform:none;pointer-events:auto}
+.cc-shot .cc-hero,.cc-shot>.cc-win{width:100%}
+.cc-win{border-radius:10px;overflow:hidden;background:#141414;border:1px solid rgba(255,255,255,.08);box-shadow:0 40px 80px -30px rgba(0,0,0,.8)}
+.cc-bar{display:flex;align-items:center;gap:6px;padding:9px 12px;background:#1b1b1b;border-bottom:1px solid rgba(255,255,255,.06)}
+.cc-bar i{width:8px;height:8px;border-radius:50%;background:#3a3a3a}
+.cc-bar span{margin-left:10px;font-family:var(--mono);font-size:9.5px;color:#888;letter-spacing:.04em}
+.cc-win .cc-media{border-radius:0}
+.cc-shot{min-height:0}
+/* windows fit the visual both ways (cq units = the visual's own size): 16:10 media + ~32px title bar */
+.cc-shot .cc-hero{width:min(100%,(84cqh - 32px) * 1.6)}
+.cc-shot>.cc-win{width:min(100%,(84cqh - 32px) * 1.4)}
+.cc-win>img{display:block;width:100%;max-height:calc(84cqh - 32px);object-fit:cover;object-position:top}
+.cc-win.tall{width:auto!important;max-width:60%}
+.cc-win.tall>img{width:auto;max-width:100%;height:calc(80cqh - 32px);max-height:none}
+.cc-shot.full{padding:0}
+.cc-shot.full img{width:100%;height:100%;object-fit:cover;object-position:center}
+
+/* prev / next project, bottom right of the visual */
+.cc-nav{position:absolute;right:14px;bottom:14px;z-index:3;display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;
+  background:rgba(12,12,12,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:#eee}
+.cc-nav button{width:30px;height:30px;border-radius:50%;color:#eee;font-size:14px;transition:background .2s,color .2s}
+.cc-nav button:hover{background:#eee;color:#111}
+.cc-nav span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:#bbb;padding:0 6px}
+
+/* ── rail layout: small caption-less thumbs stacked down the right edge. Positioned by JS (transforms), not scrolled ── */
+.cc.rail{left:auto;right:var(--rail-right,30px);top:var(--rail-top,84px);bottom:var(--rail-bottom,84px);width:var(--rail-w,150px);--cc-w:var(--rail-w,150px);
+  -webkit-mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent);mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent)}
+.cc.rail .cc-track{display:block;position:relative;height:100%;padding:0;overflow:hidden;touch-action:none}
+.cc.rail .cc-card{position:absolute;left:0;top:0;width:100%;padding:0;border:0;border-radius:6px;transform-origin:right center;
+  will-change:transform,opacity;transition:none}
+.cc.rail .cc-media{border-radius:6px}
+
+@media (max-width:760px){
+  .cc.rail{--rail-w:96px;--rail-right:16px}
+  .cc{--cc-w:84vw}
+  .cc-cap{grid-template-columns:1fr auto}.cc-cap .cc-mono{display:none}.cc-cap .cc-chips{display:none}
+  .cc-head{grid-template-columns:1fr}.cc-facts{grid-template-columns:repeat(3,1fr)}.cc-fact{padding:4px 12px}
+  /* phone: the visual pins to the top of the panel, sections scroll underneath it */
+  .cc-case{overflow-y:auto}.cc-in{height:auto;padding:22px 16px 110px}
+  .cc-panel{grid-template-columns:1fr;padding:12px;gap:20px}
+  .cc-left{overflow:visible;-webkit-mask-image:none;mask-image:none}
+  .cc-right{order:-1;position:sticky;top:0;height:42vh;z-index:2}
+  .cc-win>img,.cc-win.tall>img{max-height:30vh;height:auto}
+  .cc-step{min-height:40vh}
+}
+@media (prefers-reduced-motion:reduce){.cc-case,.cc-in{transition:none}}

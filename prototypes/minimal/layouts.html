@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Layouts — Prototype</title>
+<link rel="stylesheet" href="https://use.typekit.net/unv1gvh.css">
+<style>
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bd79c75cceb3db1a6_Helvetica.ttf);font-weight:400}
+@font-face{font-family:"Helv";src:url(../../site/public/fonts/68f1687bbcffd89655079493_Helvetica-Bold.ttf);font-weight:700}
+@font-face{font-family:"GreatLakes";src:url(../../site/public/fonts/68f155d8c639d822900aff54_GreatLakesNF.ttf)}
+:root{
+  --bg:#1c1a1b;--fg:#e4e4df;--soft:#c4c4be;--dim:#8a8884;--faint:#4a4748;--line:#343132;--panel:#211f20;--hover:#2a2728;
+  --sans:"aktiv-grotesk","Helv",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  --display:"GreatLakes","aktiv-grotesk",serif;
+  --ease:cubic-bezier(.2,.7,0,1);
+}
+body.light{--bg:#e3e4df;--fg:#1c1a1b;--soft:#3b3839;--dim:#76746f;--faint:#b4b4ae;--line:#c8c8c2;--panel:#ebebe7;--hover:#d6d6d0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--sans);color:var(--fg);font-size:12.5px;line-height:1.4;-webkit-font-smoothing:antialiased;transition:background .4s,color .4s}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{display:block}
+.label{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.scroll{overflow-y:auto;scrollbar-width:none}.scroll::-webkit-scrollbar{display:none}
+
+/* ── shared chrome (from the sketch: intro top-left, links bottom-left, dock bottom-centre, dot bottom-right) ── */
+.chrome{position:fixed;z-index:20;pointer-events:none}
+.chrome *{pointer-events:auto}
+#intro{top:26px;left:30px;max-width:300px}
+#intro b{display:block;margin-bottom:6px}
+#intro p{color:var(--soft)}
+#meta{top:26px;right:30px;text-align:right;max-width:280px}
+#meta h2{font-size:13px;font-weight:700;margin:4px 0 4px}
+#meta p{color:var(--dim)}
+#links{bottom:26px;left:30px;display:flex;flex-direction:column;gap:3px;color:var(--soft)}
+#dot{bottom:26px;right:30px;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--fg)}
+#dock{bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:5px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(10px)}
+#dock button{padding:7px 10px;border-radius:8px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--dim);white-space:nowrap;transition:background .2s,color .2s}
+#dock button:hover{color:var(--fg)}
+#dock button.on{background:var(--fg);color:var(--bg)}
+#dock .sep{width:1px;background:var(--line);margin:4px 2px}
+
+#stage{position:fixed;inset:0;z-index:1}
+.v{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .45s ease,visibility .45s}
+.v.on{opacity:1;visibility:visible}
+
+/* thumbnails: real Sanity image, or a tinted placeholder for the padded entries */
+.th{position:relative;overflow:hidden;background:var(--panel);border-radius:4px}
+.th img{width:100%;height:100%;object-fit:cover;object-position:top}
+.th.ph{background:linear-gradient(140deg,hsl(var(--h) 30% 32%),hsl(var(--h) 25% 16%))}
+.th.ph::after{content:"placeholder";position:absolute;left:8px;bottom:6px;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.th.ph.mini::after{display:none}
+
+/* ── 01 rail: small thumbs stacked on the right edge ── */
+#v1 .rail{position:absolute;right:30px;top:90px;bottom:90px;width:120px;padding:40vh 0;scroll-snap-type:y mandatory;mask:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+#v1 .rail .th{width:120px;height:84px;margin-bottom:12px;scroll-snap-align:center;cursor:pointer;opacity:.35;transform:scale(.82);transform-origin:right center;transition:opacity .35s,transform .45s var(--ease)}
+#v1 .rail .th.act{opacity:1;transform:none}
+#v1 .big{position:absolute;right:190px;top:50%;transform:translateY(-50%);text-align:right}
+#v1 .big .n{font-family:var(--mono);color:var(--dim);font-size:11px}
+#v1 .big h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,5vw,72px);line-height:1;margin:8px 0}
+#v1 .big p{color:var(--dim)}
+#v1 .arr{position:absolute;right:76px;font-family:var(--mono);color:var(--dim)}
+
+/* ── 02 column: medium cards scrolling vertically through the middle ── */
+#v2 .col{position:absolute;left:50%;top:0;bottom:0;width:min(380px,70vw);transform:translateX(-50%);padding:34vh 0;scroll-snap-type:y mandatory}
+#v2 .card{scroll-snap-align:center;margin-bottom:44px;cursor:pointer}
+#v2 .card .th{aspect-ratio:1440/1024;transition:transform .5s var(--ease),opacity .4s;opacity:.4;transform:scale(.9)}
+#v2 .card.act .th{opacity:1;transform:none}
+#v2 .card .cap{display:flex;justify-content:space-between;margin-top:8px;color:var(--dim);transition:color .3s}
+#v2 .card.act .cap{color:var(--fg)}
+
+/* ── 03 index: names as big type, image follows the cursor ── */
+#v3 .list{position:absolute;left:30px;right:30px;top:150px;bottom:80px;display:flex;flex-direction:column;justify-content:center}
+#v3 .row{display:flex;align-items:baseline;gap:18px;padding:2px 0;cursor:pointer;width:max-content}
+#v3 .row .n{font-family:var(--mono);font-size:10px;color:var(--dim);width:22px}
+#v3 .row h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,min(5.6vw,6.2vh),84px);line-height:1.02;transition:opacity .3s,transform .4s var(--ease)}
+#v3 .row .c{font-family:var(--mono);font-size:10px;color:var(--dim);opacity:0;transition:opacity .3s}
+#v3 .list:hover .row h1{opacity:.18}
+#v3 .row:hover h1{opacity:1;transform:translateX(10px)}
+#v3 .row:hover .c{opacity:1}
+#v3 .float{position:fixed;width:280px;aspect-ratio:1440/1024;pointer-events:none;z-index:5;opacity:0;transform:translate(-50%,-50%) scale(.85) rotate(-3deg);transition:opacity .25s,transform .35s var(--ease)}
+#v3 .float.on{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+#v3 .float .th{width:100%;height:100%}
+
+/* ── 04 table: spec sheet rows, hover expands ── */
+#v4 .tbl{position:absolute;left:30px;right:30px;top:150px;bottom:80px;font-family:var(--mono);font-size:11px}
+#v4 .hd,#v4 .tr{display:grid;grid-template-columns:40px 1.6fr 1.6fr 1.4fr 60px 20px;gap:16px;padding:11px 0;border-bottom:1px solid var(--line);align-items:center}
+#v4 .hd{color:var(--dim);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase}
+#v4 .tr{cursor:pointer;transition:background .2s,padding .3s}
+#v4 .tr:hover{background:var(--hover)}
+#v4 .tr .nm{font-family:var(--sans);font-size:14px;font-weight:700}
+#v4 .tr .d{color:var(--dim)}
+#v4 .ex{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease);border-bottom:1px solid var(--line)}
+#v4 .ex>div{overflow:hidden;display:flex;gap:10px}
+#v4 .ex .th{height:150px;flex:none;margin:12px 0}
+#v4 .ex .th:nth-child(1){width:211px}#v4 .ex .th:nth-child(2){width:100px}#v4 .ex .th:nth-child(3){width:211px}
+#v4 .grp:hover .ex{grid-template-rows:1fr}
+#v4 .hd + .grp .tr, #v4 .tr{border-bottom:0}
+
+/* ── 05 contact sheet: tiny thumbs grouped by discipline (sketch, right edge) ── */
+#v5 .sheet{position:absolute;left:min(380px,34vw);right:30px;top:120px;bottom:80px;padding-bottom:40px}
+#v5 .grp{margin-bottom:28px}
+#v5 .grp .label{display:block;margin-bottom:10px}
+#v5 .row{display:flex;flex-wrap:wrap;gap:8px}
+#v5 .row .th{width:76px;height:54px;cursor:pointer;transition:transform .35s var(--ease),opacity .3s}
+#v5 .row:hover .th{opacity:.35}
+#v5 .row .th:hover{opacity:1;transform:scale(1.12);z-index:2}
+#v5 .peek{position:absolute;left:30px;bottom:110px;width:min(320px,30vw)}
+#v5 .peek .th{aspect-ratio:1440/1024;width:100%;margin-bottom:10px}
+#v5 .peek b{display:block;font-size:13px}
+#v5 .peek span{color:var(--dim)}
+
+/* ── 06 filmstrip: full-bleed backdrop, small strip above the dock ── */
+#v6 .bd{position:absolute;inset:0}
+#v6 .bd .th{position:absolute;inset:0;border-radius:0;opacity:0;transition:opacity .8s ease}
+#v6 .bd .th.act{opacity:.5}
+#v6 .bd::after{content:"";position:absolute;inset:0;background:linear-gradient(var(--bg) 0,transparent 30%,transparent 55%,var(--bg) 100%)}
+#v6 .strip{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);display:flex;gap:6px;align-items:flex-end}
+#v6 .strip .th{width:64px;height:44px;cursor:pointer;opacity:.45;transition:all .4s var(--ease);outline:1px solid transparent;outline-offset:3px}
+#v6 .strip .th.act{width:96px;height:66px;opacity:1;outline-color:var(--fg)}
+#v6 .title{position:absolute;left:30px;bottom:180px}
+#v6 .title h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,7vw,110px);line-height:.95}
+#v6 .title p{color:var(--soft);margin-top:10px}
+
+/* ── 07 deck: stacked cards, click/scroll cycles ── */
+#v7 .deck{position:absolute;left:50%;top:52%;width:min(440px,60vw);aspect-ratio:1440/1024;transform:translate(-50%,-50%)}
+#v7 .deck .card{position:absolute;inset:0;cursor:pointer;transition:transform .7s var(--ease),opacity .5s,filter .5s}
+#v7 .deck .card .th{width:100%;height:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.6)}
+#v7 .cap{position:absolute;left:50%;top:calc(52% + min(440px,60vw)*.355 + 40px);transform:translateX(-50%);text-align:center}
+#v7 .cap b{font-size:14px}#v7 .cap span{display:block;color:var(--dim);margin-top:2px}
+
+/* ── 08 split: numbered list left, sticky preview right ── */
+#v8 .lst{position:absolute;left:30px;top:170px;bottom:90px;width:34vw}
+#v8 .it{display:grid;grid-template-columns:28px 1fr auto;gap:12px;padding:10px 0;border-top:1px solid var(--line);cursor:pointer;color:var(--dim);transition:color .25s,padding .35s var(--ease)}
+#v8 .it:last-child{border-bottom:1px solid var(--line)}
+#v8 .it .n{font-family:var(--mono);font-size:10px}
+#v8 .it b{font-weight:400;font-size:15px}
+#v8 .it .c{font-family:var(--mono);font-size:9.5px;align-self:center}
+#v8 .it.act{color:var(--fg);padding-left:10px}
+#v8 .pv{position:absolute;right:30px;top:110px;bottom:90px;width:calc(66vw - 110px)}
+#v8 .pv .th{position:absolute;inset:0;opacity:0;transform:scale(1.03);transition:opacity .5s,transform .8s var(--ease)}
+#v8 .pv .th.act{opacity:1;transform:none}
+
+/* ── 09 scale: one slider from text-only to big cards ── */
+#v9 .grid{position:absolute;left:30px;right:30px;top:150px;bottom:130px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:calc(6px + var(--s)*22px) calc(16px + var(--s)*20px);padding-bottom:40px}
+#v9 .it{width:calc(160px + var(--s)*240px);cursor:pointer}
+#v9 .it .th{height:calc(var(--s)*285px);opacity:min(1,calc(var(--s)*4));margin-bottom:calc(var(--s)*10px);transition:transform .4s var(--ease)}
+#v9 .it:hover .th{transform:scale(1.02)}
+#v9 .it b{display:block;font-size:calc(13px + (1 - var(--s))*14px);font-weight:400;line-height:1.1}
+#v9 .it span{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+#v9 .ctl{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);display:flex;gap:12px;align-items:center}
+#v9 input{width:220px;accent-color:var(--fg)}
+
+/* ── 10 orbit: tiny thumbs on a ring; centre names the hovered one ── */
+#v10 .ring{position:absolute;left:50%;top:52%;width:0;height:0}
+#v10 .ring .th{position:absolute;width:86px;height:61px;margin:-30px 0 0 -43px;cursor:pointer;transition:transform .6s var(--ease),opacity .3s}
+#v10 .ring:hover .th{opacity:.4}
+#v10 .ring .th:hover{opacity:1}
+#v10 .ctr{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:300px}
+#v10 .ctr h1{font-family:var(--display);font-weight:400;font-size:38px;line-height:1}
+#v10 .ctr p{color:var(--dim);margin-top:6px}
+
+/* ── case window (sketch: arrow → window with title, image, text, dots) ── */
+#case{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity .35s,visibility .35s}
+#case.on{opacity:1;visibility:visible}
+#case .win{width:min(860px,88vw);height:min(80vh,820px);background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;transform:translateY(24px) scale(.97);transition:transform .5s var(--ease)}
+#case.on .win{transform:none}
+#case .bar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+#case .body{padding:28px 32px 40px;overflow:auto}
+#case h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,5vw,60px);line-height:1}
+#case .tags{display:flex;gap:6px;margin:14px 0 22px;flex-wrap:wrap}
+#case .tags span{font-family:var(--mono);font-size:9.5px;border:1px solid var(--line);border-radius:20px;padding:3px 8px;color:var(--dim)}
+#case .hero{aspect-ratio:1440/1024;width:100%;margin-bottom:22px}
+#case .txt{color:var(--soft);max-width:62ch;font-size:13.5px;line-height:1.55}
+
+#hint{position:fixed;right:30px;bottom:56px;z-index:20;font-family:var(--mono);font-size:9.5px;color:var(--dim);text-align:right}
+@media (max-width:760px){
+  #meta,#links,#hint{display:none}
+  #dock{max-width:calc(100vw - 32px);overflow-x:auto}
+  #v8 .lst{width:auto;right:30px;top:auto;height:45vh}#v8 .pv{left:16px;right:16px;width:auto;top:150px;bottom:calc(45vh + 110px)}
+}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="chrome" id="intro">
+  <b>Fabrice Bokovi — web designer &amp; developer.</b>
+  <p>Software engineer turned multidisciplinary designer. Brand, digital experiences, and web.</p>
+</div>
+<div class="chrome" id="meta"><span class="label" id="mNum">Layout 01 / 10</span><h2 id="mName"></h2><p id="mNote"></p></div>
+<div class="chrome label" id="links"><span>About</span><span>Playground</span><span>Photography</span><span>Contact</span></div>
+<div class="chrome" id="dot" title="toggle light / dark" onclick="document.body.classList.toggle('light')"></div>
+<nav class="chrome" id="dock"></nav>
+<div id="hint">← → or 1–0 to switch · click a project to open</div>
+
+<div id="case"><div class="win">
+  <div class="bar"><span class="label" id="cNum"></span><button class="label" id="cClose">close ✕</button></div>
+  <div class="body" id="cBody"></div>
+</div></div>
+
+<script>
+/* ── content: 3 real works from Sanity (hvkunqtv/production) + placeholders to test density ── */
+const CDN = 'https://cdn.sanity.io/images/hvkunqtv/production/';
+const src = (f, w) => `${CDN}${f}?w=${w}&auto=format&q=80`;
+const REAL = [
+  {name: "Barb's Breakfast Bar", summary: 'Eccentric Mobile Breakfast Bar', cats: ['Webflow', 'Figma', 'Website'], year: '2025', disc: 'Web',
+   text: "A five-page website for a local mobile breakfast business with a surrealist, out-of-this-world vibe — whimsical, unexpected, and memorable. Full of interactive elements, bold visuals, and layered textures that reflect the brand's playful personality.",
+   imgs: ['39910811d41daf8e9ae693f5a729e9198ada7bb2-1440x1024.png', '9c3c8e1edd31a6b294556527ab8471646ba650bd-1440x3233.png', 'f76d7b26361960046b8b91ae037eaf6665d6ce23-1440x1039.png', 'fe5fa9474f0a151d631100a36d1c5a2e9116795e-824x1030.png']},
+  {name: 'Palermo Rose Garden', summary: 'High End Destination Resort', cats: ['Figma', 'Spec Site', 'Hospitality'], year: '2025', disc: 'Web',
+   text: 'An elegant landing page for a unique getaway in a fictitious location — a digital gateway for guests to explore, learn about its offerings, and book directly. Personal, immersive, and exclusive.',
+   imgs: ['2afd7c757bb01dc68e29b10f9d4a7183c2e1d1fe-1440x1024.png', 'cc9eb2752d7971620a1a2f8ad120f48cea55772b-1440x3233.png', '79092eb4b7c43268ac27bc8c3d3afd7e61113d4c-1440x1024.png', '8be66d8c6388a809d1af75b8e34d5b5f60377a94-799x1198.png']},
+  {name: 'The Daily Grind', summary: 'High End Coffee Roastery Site', cats: ['Figma', 'Webflow', 'Spec Site', 'Website'], year: '2025', disc: 'Web',
+   text: 'A visual identity and e-commerce experience bridging the precise science of roasting with the warmth of the cafe — minimal, editorial, in charcoal greys, warm creams, and deep browns.',
+   imgs: ['af809c2788254dc54cdf44470406d9a1751a6c5a-1440x1064.png', 'd91c7313bab5d55ab4bee512710fe87be05db9fc-1439x3263.png', '82558d7b75b72b6e69bcb5bb754442556d126929-1439x2553.png', 'eb96eeab15997892fb1e132fdc7220bf1e507434-801x1200.png']},
+];
+const PH = [  // names from the notebook — stand-ins so the layouts are judged at a realistic count
+  ['Shabibi Worm', 'Brand + site', 'Brand', 28], ['Rumpl Planner', 'Playground tool', 'Playground', 200],
+  ['C8 Split Flap Board', 'Playground hardware-ish toy', 'Playground', 40], ['Compass', 'Playground experiment', 'Playground', 170],
+  ['Night Market', 'Event identity', 'Brand', 330], ['Field Notes', 'Photo series', 'Photography', 90],
+  ['Lofi Mode', 'Site easter egg', 'Playground', 260],
+].map(([name, summary, disc, h]) => ({name, summary, disc, h, ph: true, cats: [disc], year: '2026', text: 'Placeholder project used to test how the layout holds up with more entries.'}));
+const W = [REAL[0], PH[0], REAL[1], PH[1], REAL[2], PH[2], PH[3], PH[4], PH[5], PH[6]];
+const pad = n => String(n + 1).padStart(2, '0');
+
+/** thumbnail markup: k picks which image (0 cover, 1 full page, 2 detail, 3 portrait) */
+function th(w, k = 0, px = 600, cls = '') {
+  if (w.ph) return `<div class="th ph ${cls}" style="--h:${w.h}"></div>`;
+  return `<div class="th ${cls}"><img src="${src(w.imgs[k], px)}" alt="" loading="lazy" draggable="false"></div>`;
+}
+
+/* ── variations ── */
+const V = [];
+const def = (name, note, html, init) => V.push({name, note, html, init});
+
+def('Rail', 'Your sketch 2 — small thumbs stack down the right edge; the title carries the weight.',
+  `<div class="rail scroll">${W.map((w, i) => th(w, 0, 300, 'mini')).join('')}</div>
+   <div class="arr" style="top:70px">↑</div><div class="arr" style="bottom:70px">↓</div>
+   <div class="big"><div class="n"></div><h1></h1><p></p></div>`,
+  el => {
+    const rail = el.querySelector('.rail'), ts = [...rail.children], big = el.querySelector('.big');
+    const set = i => { ts.forEach((t, j) => t.classList.toggle('act', j === i));
+      big.querySelector('.n').textContent = `${pad(i)} / ${pad(W.length - 1)}`;
+      big.querySelector('h1').textContent = W[i].name; big.querySelector('p').textContent = W[i].summary; };
+    const near = () => { const c = rail.getBoundingClientRect(), m = c.top + c.height / 2;
+      let b = 0, bd = 1e9; ts.forEach((t, j) => { const r = t.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - m); if (d < bd) { bd = d; b = j; } }); set(b); };
+    rail.addEventListener('scroll', near, {passive: true});
+    ts.forEach((t, j) => t.onclick = () => t.classList.contains('act') ? open(j) : t.scrollIntoView({behavior: 'smooth', block: 'center'}));
+    big.onclick = () => open(ts.findIndex(t => t.classList.contains('act'))); big.style.cursor = 'pointer';
+    requestAnimationFrame(near);
+  });
+
+def('Column', 'Your sketch 1 — the floating card, but smaller and stacked vertically. Scroll snaps one at a time.',
+  `<div class="col scroll">${W.map((w, i) => `<div class="card">${th(w)}<div class="cap"><span>${w.name}</span><span class="label">${pad(i)}</span></div></div>`).join('')}</div>`,
+  el => {
+    const col = el.querySelector('.col'), cs = [...col.children];
+    const near = () => { const c = col.getBoundingClientRect(), m = c.top + c.height / 2;
+      cs.forEach(t => { const r = t.getBoundingClientRect(); t.classList.toggle('act', Math.abs(r.top + r.height / 2 - m) < r.height / 2); }); };
+    col.addEventListener('scroll', near, {passive: true}); requestAnimationFrame(near);
+    cs.forEach((c, j) => c.onclick = () => open(j));
+  });
+
+def('Index', 'Text only. Names as big type; the image only appears under the cursor.',
+  `<div class="list">${W.map((w, i) => `<div class="row" data-i="${i}"><span class="n">${pad(i)}</span><h1>${w.name}</h1><span class="c">${w.cats.join(' · ')}</span></div>`).join('')}</div><div class="float"></div>`,
+  el => {
+    const fl = el.querySelector('.float');
+    el.querySelectorAll('.row').forEach(r => { const i = +r.dataset.i;
+      r.onmouseenter = () => { fl.innerHTML = th(W[i]); fl.classList.add('on'); };
+      r.onmouseleave = () => fl.classList.remove('on');
+      r.onclick = () => open(i); });
+    el.addEventListener('mousemove', e => { fl.style.left = e.clientX + 170 + 'px'; fl.style.top = e.clientY + 'px'; });
+  });
+
+def('Table', 'Spec sheet. Mono rows, everything scannable; hover a row to unfold three images.',
+  `<div class="tbl scroll"><div class="hd"><span>No.</span><span>Project</span><span>Brief</span><span>Tools</span><span>Year</span><span></span></div>
+   ${W.map((w, i) => `<div class="grp" data-i="${i}"><div class="tr"><span class="d">${pad(i)}</span><span class="nm">${w.name}</span><span class="d">${w.summary}</span><span class="d">${w.cats.join(', ')}</span><span class="d">${w.year}</span><span>↗</span></div>
+   <div class="ex"><div>${th(w, 0, 500)}${th(w, 3, 300, 'mini')}${th(w, 2, 500, 'mini')}</div></div></div>`).join('')}</div>`,
+  el => el.querySelectorAll('.grp').forEach(g => g.onclick = () => open(+g.dataset.i)));
+
+def('Contact sheet', 'Notebook margin sketch — tiny thumbs grouped by discipline, like a film contact sheet.',
+  `<div class="peek"></div><div class="sheet scroll">${['Web', 'Brand', 'Playground', 'Photography'].map(d =>
+    `<div class="grp"><span class="label">${d} — ${W.filter(w => w.disc === d).length}</span><div class="row">${W.map((w, i) => w.disc === d ? th(w, 0, 240, 'mini').replace('class="th', `data-i="${i}" class="th`) : '').join('')}</div></div>`).join('')}</div>`,
+  el => {
+    const pk = el.querySelector('.peek');
+    const show = i => pk.innerHTML = `${th(W[i])}<b>${W[i].name}</b><span>${W[i].summary}</span>`;
+    el.querySelectorAll('.row .th').forEach(t => { const i = +t.dataset.i; t.onmouseenter = () => show(i); t.onclick = () => open(i); });
+    show(0);
+  });
+
+def('Filmstrip', 'The project becomes the backdrop. A small strip picks it; the title sits big in the corner.',
+  `<div class="bd">${W.map(w => th(w, 0, 1800)).join('')}</div>
+   <div class="title"><span class="label n"></span><h1></h1><p></p></div>
+   <div class="strip">${W.map(w => th(w, 0, 240, 'mini')).join('')}</div>`,
+  el => {
+    const bd = [...el.querySelectorAll('.bd .th')], st = [...el.querySelectorAll('.strip .th')], t = el.querySelector('.title');
+    let cur = 0;
+    const set = i => { cur = i; [bd, st].forEach(a => a.forEach((x, j) => x.classList.toggle('act', j === i)));
+      t.querySelector('.n').textContent = pad(i); t.querySelector('h1').textContent = W[i].name; t.querySelector('p').textContent = W[i].summary; };
+    st.forEach((x, j) => { x.onmouseenter = () => set(j); x.onclick = () => open(j); });
+    t.onclick = () => open(cur); t.style.cursor = 'pointer';
+    set(0);
+  });
+
+def('Deck', 'A stack of cards. Scroll or click the top card to send it to the back; double-click opens.',
+  `<div class="deck">${W.map((w, i) => `<div class="card" data-i="${i}">${th(w, 0, 900)}</div>`).join('')}</div><div class="cap"><b></b><span></span></div>`,
+  el => {
+    const cs = [...el.querySelectorAll('.card')], cap = el.querySelector('.cap'); let top = 0, lock = 0;
+    const lay = () => cs.forEach((c, j) => { const d = (j - top + W.length) % W.length;
+      c.style.zIndex = 100 - d;
+      c.style.transform = d > 4 ? 'translateY(-60px) scale(.8)' : `translateY(${-d * 14}px) scale(${1 - d * .05}) rotate(${d ? (j % 2 ? 1 : -1) * d * 1.4 : 0}deg)`;
+      c.style.opacity = d > 4 ? 0 : 1; c.style.filter = `brightness(${1 - d * .15})`; });
+    const go = s => { top = (top + s + W.length) % W.length; lay();
+      cap.querySelector('b').textContent = W[top].name; cap.querySelector('span').textContent = `${pad(top)} — ${W[top].summary}`; };
+    cs.forEach((c, j) => { c.onclick = () => j === top && go(1); c.ondblclick = () => open(j); });
+    el.addEventListener('wheel', e => { if (Date.now() - lock < 450 || Math.abs(e.deltaY) < 8) return; lock = Date.now(); go(e.deltaY > 0 ? 1 : -1); }, {passive: true});
+    go(0);
+  });
+
+def('Split', 'Numbered list on the left, one large preview on the right that crossfades on hover.',
+  `<div class="lst scroll">${W.map((w, i) => `<div class="it" data-i="${i}"><span class="n">${pad(i)}</span><b>${w.name}</b><span class="c">${w.cats[0]}</span></div>`).join('')}</div>
+   <div class="pv">${W.map(w => th(w, 0, 1400)).join('')}</div>`,
+  el => {
+    const its = [...el.querySelectorAll('.it')], pv = [...el.querySelectorAll('.pv .th')];
+    const set = i => [its, pv].forEach(a => a.forEach((x, j) => x.classList.toggle('act', j === i)));
+    its.forEach((x, j) => { x.onmouseenter = () => set(j); x.onclick = () => open(j); });
+    pv.forEach((x, j) => { x.onclick = () => open(j); x.style.cursor = 'pointer'; });
+    set(0);
+  });
+
+def('Scale', 'One slider from pure text to big cards, so you can find the size that feels right.',
+  `<div class="grid scroll" style="--s:.35">${W.map((w, i) => `<div class="it" data-i="${i}">${th(w, 0, 800)}<b>${w.name}</b><span>${pad(i)} · ${w.cats[0]}</span></div>`).join('')}</div>
+   <div class="ctl"><span class="label">Text</span><input type="range" min="0" max="1" step=".01" value=".35"><span class="label">Cards</span></div>`,
+  el => {
+    const g = el.querySelector('.grid');
+    el.querySelector('input').oninput = e => g.style.setProperty('--s', e.target.value);
+    el.querySelectorAll('.it').forEach(x => x.onclick = () => open(+x.dataset.i));
+  });
+
+def('Orbit', 'Thumbs on a slow ring around the name of whatever you hover. More playful, less of a list.',
+  `<div class="ring">${W.map((w, i) => th(w, 0, 300, 'mini').replace('class="th', `data-i="${i}" class="th`)).join('')}</div><div class="ctr"><h1></h1><p></p></div>`,
+  el => {
+    const ts = [...el.querySelectorAll('.ring .th')], c = el.querySelector('.ctr'); let a = 0, hov = false;
+    const name = i => { c.querySelector('h1').textContent = i < 0 ? 'Selected works' : W[i].name; c.querySelector('p').textContent = i < 0 ? `${W.length} projects` : W[i].summary; };
+    ts.forEach((t, j) => { t.onmouseenter = () => { hov = true; name(j); }; t.onmouseleave = () => { hov = false; name(-1); }; t.onclick = () => open(j); });
+    name(-1);
+    (function tick() { if (!hov) a += .0012;
+      const R = Math.min(innerWidth, innerHeight) * .32;
+      ts.forEach((t, j) => { const th = a + j / ts.length * Math.PI * 2; t.style.transform = `translate(${Math.cos(th) * R * 1.35}px,${Math.sin(th) * R}px)`; });
+      if (el.classList.contains('on')) requestAnimationFrame(tick); else el._paused = tick; })();
+  });
+
+/* ── mount + switching ── */
+const stage = document.getElementById('stage'), dock = document.getElementById('dock');
+V.forEach((v, i) => {
+  const el = document.createElement('section'); el.className = 'v'; el.id = 'v' + (i + 1); el.innerHTML = v.html; stage.append(el); v.el = el;
+  const b = document.createElement('button'); b.textContent = `${pad(i)} ${v.name}`; b.onclick = () => show(i); dock.append(b);
+});
+let cur = -1;
+function show(i) {
+  if (i === cur) return; cur = i;
+  V.forEach((v, j) => v.el.classList.toggle('on', j === i));
+  [...dock.children].forEach((b, j) => b.classList.toggle('on', j === i));
+  document.getElementById('mNum').textContent = `Layout ${pad(i)} / ${pad(V.length - 1)}`;
+  document.getElementById('mName').textContent = V[i].name;
+  document.getElementById('mNote').textContent = V[i].note;
+  const v = V[i]; if (!v.ready) { v.ready = true; v.init(v.el); } else if (v.el._paused) { const f = v.el._paused; v.el._paused = null; f(); }
+  try { localStorage.setItem('layout', i); } catch {}
+}
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') return close();
+  if (document.getElementById('case').classList.contains('on')) return;
+  if (e.key === 'ArrowRight') show((cur + 1) % V.length);
+  if (e.key === 'ArrowLeft') show((cur - 1 + V.length) % V.length);
+  if (/^[0-9]$/.test(e.key)) show(e.key === '0' ? 9 : +e.key - 1);
+});
+
+/* ── case window ── */
+const cs = document.getElementById('case');
+function open(i) {
+  const w = W[i];
+  document.getElementById('cNum').textContent = `${pad(i)} — ${w.summary}`;
+  document.getElementById('cBody').innerHTML = `<h1>${w.name}</h1><div class="tags">${w.cats.map(c => `<span>${c}</span>`).join('')}</div>${th(w, 0, 1600, 'hero')}<p class="txt">${w.text}</p>`;
+  cs.classList.add('on');
+}
+function close() { cs.classList.remove('on'); }
+document.getElementById('cClose').onclick = close;
+cs.onclick = e => { if (e.target === cs) close(); };
+
+let start = 0; try { start = +localStorage.getItem('layout') || 0; } catch {}
+show(Math.min(start, V.length - 1));
+</script>
+</body>
+</html>
